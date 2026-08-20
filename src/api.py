@@ -7,18 +7,16 @@ import mlflow.sklearn
 import pandas as pd
 import numpy as np
 from typing import Optional
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from src.nba_engine import determine_next_best_action
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
-from src.webhook_engine import dispatch_webhook_event
-from src.azure_storage import upload_file_to_azure
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
+from src.config import POSTGRES_URL, MONGO_URI
+from src.nba_engine import determine_next_best_action
 from src.fraud_engine import evaluate_fraud_risk
-
 from src.decision_engine import evaluate_credit_decision
+from src.webhook_engine import dispatch_webhook_event, send_risk_alert
 
 app = FastAPI(title="FinSight API")
 
@@ -29,10 +27,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configurações dos Bancos
-POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://finsight_user:finsight_password@postgres:5432/finsight_db")
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongodb:27017")
 
 # Schema de Validação
 class CreditApplication(BaseModel):
@@ -83,8 +77,8 @@ def get_postgres_connection():
         connection_args["sslmode"] = "require"
     return psycopg2.connect(POSTGRES_URL, **connection_args)
 
-def save_to_postgres(data: dict, decision: dict):
-    """Salva dados da proposta no PostgreSQL (Local ou Azure)."""
+def save_to_postgres(data: dict, decision: dict) -> Optional[int]:
+    """Salva dados da proposta no PostgreSQL e retorna o customer_id gerado."""
     try:
         conn = get_postgres_connection()
         cur = conn.cursor()
@@ -121,8 +115,10 @@ def save_to_postgres(data: dict, decision: dict):
         cur.close()
         conn.close()
         print("Dados salvos no PostgreSQL com sucesso!")
+        return customer_id
     except Exception as e:
         print(f"Erro ao salvar no Postgres: {e}")
+        return None
 
 def save_to_mongodb(data: dict, decision: dict):
     """Salva logs de eventos de navegação/simulação no MongoDB."""
@@ -238,10 +234,24 @@ def predict_credit(application: CreditApplication, background_tasks: BackgroundT
             decision["decision_reason"] += f" | ALERTA DE FRAUDE: {', '.join(fraud_analysis['flags'])}"
 
         # Gravação nos bancos de dados (Postgres e Mongo)
-        save_to_postgres(data, decision)
+        customer_id = save_to_postgres(data, decision)
         save_to_mongodb(data, decision)
 
-        # Disparo de Webhook (se houver alerta de fraude ou recusa)
+        # Disparo do alerta via Webhook em background se houver recusa ou revisão
+        if decision["status"] in ["RECUSADO", "ANALISE_MANUAL", "REVISÃO MANUAL"]:
+            background_tasks.add_task(
+                send_risk_alert,
+                {
+                    "customer_id": customer_id,
+                    "requested_amount": data["loan_amnt"],
+                    "pd_score": decision["pd_score"],
+                    "risk_rating": decision["rating"],
+                    "status": decision["status"],
+                    "decision_reason": decision["decision_reason"]
+                }
+            )
+
+        # Disparo de Webhook genérico de eventos
         event_type = "risk.high_alert" if fraud_analysis["is_suspicious"] else ("credit.rejected" if decision["status"] == "RECUSADO" else "credit.approved")
         background_tasks.add_task(dispatch_webhook_event, event_type, data, decision)
 
@@ -249,12 +259,12 @@ def predict_credit(application: CreditApplication, background_tasks: BackgroundT
 
     except Exception as err:
         raise HTTPException(status_code=500, detail=f"Erro na inferência: {str(err)}")
-    
+
 @app.get("/customer/{customer_id}/360")
 def get_customer_360(customer_id: int):
     try:
         # 1. Busca dados cadastrais e histórico de solicitações no PostgreSQL
-        conn = psycopg2.connect(POSTGRES_URL)
+        conn = get_postgres_connection()
         cur = conn.cursor()
         
         cur.execute("SELECT customer_id, name, annual_inc, home_ownership, emp_length, created_at FROM customers WHERE customer_id = %s;", (customer_id,))
@@ -328,7 +338,7 @@ def get_customer_360(customer_id: int):
 
     except Exception as err:
         raise HTTPException(status_code=500, detail=f"Erro ao compilar visão Customer 360: {str(err)}")
-    
+
 @app.post("/webhooks/receiver-mock")
 def mock_webhook_receiver(event: dict):
     """
@@ -340,16 +350,16 @@ def mock_webhook_receiver(event: dict):
     decision = data.get("decision", {})
 
     print("\n" + "="*50)
-    print(f" WEBHOOK RECEBIDO: [{event_type}]")
-    print(f" ID do Evento: {event.get('event_id')}")
-    print(f" Status da Decisão: {decision.get('status')} (PD: {decision.get('pd_score')}%)")
+    print(f"WEBHOOK RECEBIDO: [{event_type}]")
+    print(f"ID do Evento: {event.get('event_id')}")
+    print(f"Status da Decisão: {decision.get('status')} (PD: {decision.get('pd_score')}%)")
     
     if event_type == "credit.rejected":
-        print(" [RPA ACTION]: Cadastrando proposta em régua de acompanhamento de 90 dias.")
-        print(" [RPA ACTION]: Enviando e-mail automático com justificativa e opções de renegociação.")
+        print("[RPA ACTION]: Cadastrando proposta em régua de acompanhamento de 90 dias.")
+        print("[RPA ACTION]: Enviando e-mail automático com justificativa e opções de renegociação.")
     elif event_type == "credit.approved":
-        print(" [RPA ACTION]: Gerando minuta contratual e disponibilizando limite no App.")
-        print(" [RPA ACTION]: Enviando WhatsApp com link de assinatura digital.")
+        print("[RPA ACTION]: Gerando minuta contratual e disponibilizando limite no App.")
+        print("[RPA ACTION]: Enviando WhatsApp com link de assinatura digital.")
     print("="*50 + "\n")
 
     return {"status": "event_received_and_processed"}
