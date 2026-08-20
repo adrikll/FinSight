@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  finsight-api:
+    build: .
+    container_name: finsight_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - PORT=8000
+      - POSTGRES_URL=${POSTGRES_URL:-postgresql://finsight_user:finsight_password@postgres:5432/finsight_db}
+      - MONGO_URI=${MONGO_URI:-mongodb://mongodb:27017}
+      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING:-}
+      - AZURE_BLOB_CONTAINER=finsight-artifacts
+    depends_on:
+      - postgres
+      - mongodb
+    restart: always
+
+  postgres:
+    image: postgres:15
+    container_name: finsight_postgres
+    environment:
+      POSTGRES_USER: finsight_user
+      POSTGRES_PASSWORD: finsight_password
+      POSTGRES_DB: finsight_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  mongodb:
+    image: mongo:latest
+    container_name: finsight_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+volumes:
+  pgdata:
+  mongodata:

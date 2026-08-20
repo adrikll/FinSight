@@ -1,0 +1,29 @@
+# Ambientes Virtuais & Python Cache
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Variáveis de Ambiente & Credenciais
+.env
+*.env
+
+# Execuções de ML & Treinamento Local
+catboost_info/
+mlruns/
+mlflow.db
+
+# Dados Brutos / Processados / Artefatos Binários
+data/raw/
+data/processed/*.parquet
+data/processed/*.csv
+
+# Dependências do Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Configurações de Editores & Sistema
+.vscode/
+.idea/
+.DS_Store
