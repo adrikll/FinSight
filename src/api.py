@@ -1,25 +1,21 @@
-import os
-import glob
-import psycopg2
-from pymongo import MongoClient
-from datetime import datetime
-import mlflow.sklearn
+import joblib
 import pandas as pd
-import numpy as np
-from typing import Optional
-
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+import psycopg2
+from pymongo import MongoClient
+from datetime import datetime, timezone, timedelta
+import requests
 
 from src.config import POSTGRES_URL, MONGO_URI
-from src.nba_engine import determine_next_best_action
-from src.fraud_engine import evaluate_fraud_risk
-from src.decision_engine import evaluate_credit_decision
-from src.webhook_engine import dispatch_webhook_event, send_risk_alert
+from src.feature_engineering import feature_engineering_avancada, load_income_bins
+from src.decision_engine import avaliar_proposta_credito
+import json
 
-app = FastAPI(title="FinSight API")
+app = FastAPI(title="FinSight Credit Engine API", version="2.0.0")
 
+# Middleware de CORS posicionado imediatamente após a criação do app
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,338 +24,528 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Schema de Validação
-class CreditApplication(BaseModel):
-    loan_amnt: float = Field(..., json_schema_extra={"example": 15000.0})
-    term: str = Field(..., json_schema_extra={"example": "36 Meses"})
-    emp_length: str = Field(..., json_schema_extra={"example": "10+ anos"})
-    home_ownership: str = Field(..., json_schema_extra={"example": "RENT"})
-    annual_inc: float = Field(..., json_schema_extra={"example": 75000.0})
-    monthly_debts: float = Field(default=0.0, json_schema_extra={"example": 1150.0})
-    dti: Optional[float] = Field(default=None)
+MODEL_PATH = "artifacts/champion_model.pkl"
+BINS_PATH = "artifacts/income_bins.json"
+
+pipeline = joblib.load(MODEL_PATH)
+income_bins = load_income_bins(BINS_PATH)
+
+class PropostaCreditoRequest(BaseModel):
+  name: str
+  carteira_a_vencer: float
+  a_vencer_ate_90_dias: float
+  a_vencer_de_91_ate_360_dias: float
+  numero_de_operacoes: int
+  requested_amount: float
+  dividas_mensais: float
+  renda_informada: float  
+  modalidade: str
+  porte: str
+  uf: str
+  segmento: str = "PF"
+  origem: str = "Sem destinação específica"
+  indexador: str = "Prefixado"
+  cnae_ocupacao: str = "Autônomo"
+  
+class CenarioCrescimentoRequest(BaseModel):
+    percentual_crescimento: float  # ex: 10.0 = +10%, -5.0 = -5%
     
-    # Valores padrão para o schema do modelo
-    int_rate: float = Field(default=12.0)
-    installment: float = Field(default=0.0)
-    grade: str = Field(default="B")
-    sub_grade: str = Field(default="B3")
-    verification_status: str = Field(default="Verified")
-    purpose: str = Field(default="debt_consolidation")
-    delinq_2yrs: float = Field(default=0.0)
-    inq_last_6mths: float = Field(default=1.0)
-    open_acc: float = Field(default=10.0)
-    pub_rec: float = Field(default=0.0)
-    revol_bal: float = Field(default=12000.0)
-    revol_util: float = Field(default=45.2)
-    total_acc: float = Field(default=22.0)
-    issue_d: str = Field(default="2015-12-01")
-    earliest_cr_line: str = Field(default="2001-08-01")
-
-# Carregamento do Modelo MLflow
-model = None
-mlflow_model_path = "/app/mlruns/2/models/m-c2ec97af2639444bb1a5f5963ec9e84d/artifacts"
-
-try:
-    if os.path.exists(mlflow_model_path):
-        model = mlflow.sklearn.load_model(mlflow_model_path)
-        print("Modelo do MLflow carregado com sucesso!")
-    else:
-        print(f"Diretório {mlflow_model_path} não encontrado.")
-except Exception as e:
-    print(f"Erro ao carregar modelo do MLflow: {e}")
-
-# Funções Auxiliares de Persistência
-
-def get_postgres_connection():
-    """Garante suporte a SSL automaticamente quando conectado ao Azure."""
-    connection_args = {}
-    if "postgres.database.azure.com" in POSTGRES_URL:
-        connection_args["sslmode"] = "require"
-    return psycopg2.connect(POSTGRES_URL, **connection_args)
-
-def save_to_postgres(data: dict, decision: dict) -> Optional[int]:
-    """Salva dados da proposta no PostgreSQL e retorna o customer_id gerado."""
+@app.get("/api/portfolio-baseline")
+def get_portfolio_baseline():
     try:
-        conn = get_postgres_connection()
+        conn = psycopg2.connect(POSTGRES_URL)
         cur = conn.cursor()
-        
-        cur.execute(
-            """
-            INSERT INTO customers (name, annual_inc, home_ownership, emp_length)
-            VALUES (%s, %s, %s, %s) RETURNING customer_id;
-            """,
-            ("Cliente Simulação", data["annual_inc"], data["home_ownership"], data["emp_length"])
-        )
-        customer_id = cur.fetchone()[0]
+        cur.execute("""
+            SELECT 
+                COALESCE(SUM(carteira_ativa), 0),
+                COALESCE(SUM(carteira_inadimplencia), 0),
+                COUNT(*)
+            FROM carteira_bcb_historica;
+        """)
+        carteira_ativa_total, inadimplida_total, total_registros = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        taxa = (inadimplida_total / carteira_ativa_total * 100) if carteira_ativa_total > 0 else 0.0
+
+        return {
+            "carteira_ativa_total": float(carteira_ativa_total),
+            "carteira_inadimplida_total": float(inadimplida_total),
+            "taxa_inadimplencia_base": round(taxa, 2),
+            "total_registros_agregados": int(total_registros),
+            "fonte": "BCB SCR.data (amostra agregada)",
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/scenario/crescimento-carteira")
+def simular_crescimento_carteira(cenario: CenarioCrescimentoRequest):
+    try:
+        conn = psycopg2.connect(POSTGRES_URL)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COALESCE(SUM(carteira_ativa), 0), COALESCE(SUM(carteira_inadimplencia), 0)
+            FROM carteira_bcb_historica;
+        """)
+        carteira_base, inadimplida_base = cur.fetchone()
+        carteira_base = float(carteira_base)
+        inadimplida_base = float(inadimplida_base)
+
+        if carteira_base <= 0:
+            cur.close(); conn.close()
+            return {"error": "Base histórica vazia. Rode carga_historica_bcb.py antes de simular."}
+
+        taxa_base = inadimplida_base / carteira_base
+        fator = 1 + (cenario.percentual_crescimento / 100.0)
+        carteira_projetada = carteira_base * fator
+        inadimplencia_projetada = carteira_projetada * taxa_base
+
+        resultado = {
+            "tipo_cenario": "Crescimento/Redução de Carteira",
+            "premissas": {
+                "percentual_aplicado": cenario.percentual_crescimento,
+                "hipotese": "A taxa de inadimplência histórica observada na base agregada do BCB se mantém constante; o crescimento/redução é aplicado uniformemente sobre a carteira ativa total.",
+            },
+            "metodo": "Carteira projetada = Carteira ativa atual × (1 + percentual/100). Inadimplência projetada = Carteira projetada × taxa de inadimplência histórica.",
+            "base": {
+                "carteira_ativa": round(carteira_base, 2),
+                "carteira_inadimplencia": round(inadimplida_base, 2),
+                "taxa_inadimplencia": round(taxa_base * 100, 2),
+            },
+            "projetado": {
+                "carteira_ativa": round(carteira_projetada, 2),
+                "carteira_inadimplencia": round(inadimplencia_projetada, 2),
+                "taxa_inadimplencia": round(taxa_base * 100, 2),
+            },
+            "variacao_vs_base": {
+                "carteira_ativa_absoluta": round(carteira_projetada - carteira_base, 2),
+                "carteira_ativa_percentual": cenario.percentual_crescimento,
+                "inadimplencia_absoluta": round(inadimplencia_projetada - inadimplida_base, 2),
+            },
+            "limitacoes": [
+                "Cenário determinístico e linear: assume que o crescimento afeta toda a carteira de forma uniforme, sem mudança de mix de modalidade, UF ou porte.",
+                "A taxa de inadimplência é mantida constante por hipótese; não há modelagem de elasticidade entre crescimento e risco.",
+                "O modelo preditivo (CatBoost) não é usado neste cenário: ele foi treinado para estimar risco a partir de operações individuais agregadas, não para projeção de elasticidade de portfólio.",
+            ],
+        }
 
         cur.execute(
-            """
-            INSERT INTO credit_applications 
-            (customer_id, requested_amount, term, monthly_debts, pd_score, risk_rating, status, approved_limit, suggested_rate, decision_reason)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-            """,
-            (
-                customer_id,
-                data["loan_amnt"],
-                data["term"],
-                data["monthly_debts"],
-                decision["pd_score"],
-                decision["rating"],
-                decision["status"],
-                decision["approved_limit"],
-                decision["suggested_rate"],
-                decision["decision_reason"]
-            )
+            "INSERT INTO cenarios_simulados (tipo_cenario, premissas, resultado) VALUES (%s, %s, %s)",
+            ("crescimento_carteira", json.dumps(resultado["premissas"]), json.dumps(resultado)),
         )
         conn.commit()
         cur.close()
         conn.close()
-        print("Dados salvos no PostgreSQL com sucesso!")
-        return customer_id
+
+        return resultado
     except Exception as e:
-        print(f"Erro ao salvar no Postgres: {e}")
-        return None
-
-def save_to_mongodb(data: dict, decision: dict):
-    """Salva logs de eventos de navegação/simulação no MongoDB."""
-    try:
-        client = MongoClient(MONGO_URI)
-        db = client["finsight_behavioral"]
-        event = {
-            "event_type": "credit_simulation",
-            "timestamp": datetime.utcnow(),
-            "payload": data,
-            "decision_result": decision
-        }
-        db.customer_events.insert_one(event)
-        print("Evento salvo no MongoDB com sucesso!")
-    except Exception as e:
-        print(f"Erro ao salvar no MongoDB: {e}")
-
-def prepare_features_for_inference(df: pd.DataFrame) -> np.ndarray:
-    df = df.copy()
-
-    home_map = {
-        "RENT": 0, "MORTGAGE": 1, "OWN": 2, "OTHER": 3,
-        "Própria (OWN)": 2, "Alugada (RENT)": 0, "Financiada (MORTGAGE)": 1
-    }
-    emp_map = {
-        "< 1 year": 0, "1 year": 1, "2 years": 2, "3 years": 3,
-        "4 years": 4, "5 years": 5, "6 years": 6, "7 years": 7,
-        "8 years": 8, "9 years": 9, "10+ years": 10,
-        "< 1 ano": 0, "1 ano": 1, "5 anos": 5, "10+ anos": 10
-    }
-
-    if "home_ownership" in df.columns:
-        df["home_ownership"] = df["home_ownership"].map(home_map).fillna(0)
-    if "emp_length" in df.columns:
-        df["emp_length"] = df["emp_length"].map(emp_map).fillna(0)
-
-    df['loan_to_income'] = df['loan_amnt'] / (df['annual_inc'] + 1)
-    df['installment_to_monthly_inc'] = df['installment'] / ((df['annual_inc'] / 12) + 1)
-    df['stress_index'] = (df['dti'] * df.get('revol_util', 0)) / 100
-    df['estimated_total_credit'] = df['revol_bal'] / ((df['revol_util'] / 100) + 0.01)
-    df['available_credit'] = df['estimated_total_credit'] - df['revol_bal']
-    df['interest_burden'] = df['installment'] * (df['int_rate'] / 100)
-    df['income_quantile'] = 5.0
-
-    X_sample = df.drop(
-        columns=['target_default', 'member_id', 'issue_d', 'earliest_cr_line', 'monthly_debts'], 
-        errors='ignore'
-    )
-
-    cat_cols = X_sample.select_dtypes(include=['object', 'category']).columns.tolist()
-    for col in cat_cols:
-        X_sample[col] = X_sample[col].astype('category').cat.codes.astype(float)
-
-    return X_sample.astype(float).values
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "model_loaded": model is not None}
+    postgres_ok = False
+    mongo_ok = False
+    try:
+        conn = psycopg2.connect(POSTGRES_URL)
+        conn.close()
+        postgres_ok = True
+    except Exception:
+        pass
+    try:
+        mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
+        mongo_client.admin.command('ping')
+        mongo_ok = True
+    except Exception:
+        pass
+    return {
+        "status": "online",
+        "model_loaded": pipeline is not None,
+        "postgres_connected": postgres_ok,
+        "mongo_connected": mongo_ok,
+    }
 
 @app.post("/predict")
-def predict_credit(application: CreditApplication, background_tasks: BackgroundTasks):
-    if model is None:
-        raise HTTPException(status_code=500, detail="Modelo preditivo não carregado.")
-
+def predict_credit(proposta: PropostaCreditoRequest):
     try:
-        data = application.model_dump()
+        # Se a carteira a vencer vier zerada (cliente sem empréstimos ativos), 
+        # atribuímos um patamar saudável padrão para o modelo não dar PD de 88% por falta de histórico.
+        carteira_base = (
+            proposta.carteira_a_vencer
+            if proposta.carteira_a_vencer > 0
+            else 5000.0
+        )
+        curto_prazo_base = carteira_base * 0.25
 
-        # 1. Avaliação de Fraude e Anomalia
-        fraud_analysis = evaluate_fraud_risk(
-            loan_amnt=data["loan_amnt"],
-            annual_inc=data["annual_inc"],
-            monthly_debts=data["monthly_debts"]
+        input_data = pd.DataFrame([{
+            "cliente": "PF",
+            "carteira_a_vencer": carteira_base,
+            "a_vencer_ate_90_dias": curto_prazo_base,
+            "a_vencer_de_91_ate_360_dias": carteira_base - curto_prazo_base,
+            "a_vencer_de_361_ate_1080_dias": 0.0,
+            "a_vencer_de_1081_ate_1800_dias": 0.0,
+            "a_vencer_de_1801_ate_5400_dias": 0.0,
+            "a_vencer_acima_de_5400_dias": 0.0,
+            "numero_de_operacoes": (
+                proposta.numero_de_operacoes
+                if proposta.numero_de_operacoes > 0
+                else 1
+            ),
+            "modalidade": proposta.modalidade,
+            "porte": proposta.porte,
+            "segmento": "PF",
+            "origem": "Sem destinação específica",
+            "indexador": "Prefixado",
+            "cnae_ocupacao": "Autônomo",
+            "uf": proposta.uf,
+        }])
+
+        df_processed = feature_engineering_avancada(
+            input_data, income_bins=income_bins
         )
 
-        # DTI Automático
-        monthly_income = data["annual_inc"] / 12 if data["annual_inc"] > 0 else 1.0
-        if data.get("dti") is None or data.get("dti") == 0:
-            calculated_dti = (data["monthly_debts"] / monthly_income) * 100
-            data["dti"] = round(calculated_dti, 2)
-
-        if "36" in str(data["term"]):
-            term_str = " 36 months"
-            num_payments = 36
-        else:
-            term_str = " 60 months"
-            num_payments = 60
-        data["term"] = term_str
-
-        estimated_int_rate = 12.0
-        monthly_rate = (estimated_int_rate / 100) / 12
-        data["int_rate"] = estimated_int_rate
-        data["installment"] = round(
-            (data["loan_amnt"] * monthly_rate) / (1 - (1 + monthly_rate) ** -num_payments), 2
-        )
-
-        raw_df = pd.DataFrame([data])
-        X_prep = prepare_features_for_inference(raw_df)
-
-        pd_proba = float(model.predict_proba(X_prep)[:, 1][0])
-
-        decision = evaluate_credit_decision(
-            pd_score=pd_proba,
-            requested_amount=application.loan_amnt,
-            annual_inc=application.annual_inc
-        )
-
-        # Anexa o resultado da análise de fraude na resposta
-        decision["fraud_analysis"] = fraud_analysis
-
-        # Bloqueia aprovação automática se for sinalizado como suspeita de fraude
-        if fraud_analysis["is_suspicious"]:
-            decision["status"] = "REVISÃO MANUAL"
-            decision["decision_reason"] += f" | ALERTA DE FRAUDE: {', '.join(fraud_analysis['flags'])}"
-
-        # Gravação nos bancos de dados (Postgres e Mongo)
-        customer_id = save_to_postgres(data, decision)
-        save_to_mongodb(data, decision)
-
-        # Disparo do alerta via Webhook em background se houver recusa ou revisão
-        if decision["status"] in ["RECUSADO", "ANALISE_MANUAL", "REVISÃO MANUAL"]:
-            background_tasks.add_task(
-                send_risk_alert,
-                {
-                    "customer_id": customer_id,
-                    "requested_amount": data["loan_amnt"],
-                    "pd_score": decision["pd_score"],
-                    "risk_rating": decision["rating"],
-                    "status": decision["status"],
-                    "decision_reason": decision["decision_reason"]
-                }
+        if proposta.renda_informada > 0:
+            df_processed["annual_inc"] = proposta.renda_informada * 12.0
+            df_processed["income_quantile"] = pd.cut(
+                df_processed["annual_inc"], bins=income_bins,
+                labels=False, include_lowest=True
             )
-
-        # Disparo de Webhook genérico de eventos
-        event_type = "risk.high_alert" if fraud_analysis["is_suspicious"] else ("credit.rejected" if decision["status"] == "RECUSADO" else "credit.approved")
-        background_tasks.add_task(dispatch_webhook_event, event_type, data, decision)
-
-        return decision
-
-    except Exception as err:
-        raise HTTPException(status_code=500, detail=f"Erro na inferência: {str(err)}")
-
-@app.get("/customer/{customer_id}/360")
-def get_customer_360(customer_id: int):
-    try:
-        # 1. Busca dados cadastrais e histórico de solicitações no PostgreSQL
-        conn = get_postgres_connection()
-        cur = conn.cursor()
+            df_processed["income_quantile"] = (
+                df_processed["income_quantile"].fillna(len(income_bins) - 2).astype(float)
+            )
         
-        cur.execute("SELECT customer_id, name, annual_inc, home_ownership, emp_length, created_at FROM customers WHERE customer_id = %s;", (customer_id,))
-        cust = cur.fetchone()
-        
-        if not cust:
-            raise HTTPException(status_code=404, detail="Cliente não encontrado no PostgreSQL.")
+        if hasattr(pipeline, "feature_names_in_"):
+            for col in pipeline.feature_names_in_:
+                if col not in df_processed.columns:
+                    df_processed[col] = 0.0
+            df_processed = df_processed[pipeline.feature_names_in_]
 
-        customer_data = {
-            "customer_id": cust[0],
-            "name": cust[1],
-            "annual_inc": float(cust[2]),
-            "home_ownership": cust[3],
-            "emp_length": cust[4],
-            "created_at": str(cust[5])
-        }
+        pd_score = float(pipeline.predict_proba(df_processed)[:, 1][0])
+        renda_estimada = float(df_processed["annual_inc"].iloc[0])
 
-        cur.execute("""
-            SELECT application_id, requested_amount, term, monthly_debts, pd_score, risk_rating, status, approved_limit, suggested_rate, decision_reason, created_at 
-            FROM credit_applications 
-            WHERE customer_id = %s 
-            ORDER BY created_at DESC;
-        """, (customer_id,))
-        apps = cur.fetchall()
-        cur.close()
-        conn.close()
-
-        applications_history = []
-        for app_row in apps:
-            applications_history.append({
-                "application_id": app_row[0],
-                "requested_amount": float(app_row[1]),
-                "term": app_row[2],
-                "monthly_debts": float(app_row[3]),
-                "pd_score": float(app_row[4]),
-                "risk_rating": app_row[5],
-                "status": app_row[6],
-                "approved_limit": float(app_row[7]),
-                "suggested_rate": float(app_row[8]),
-                "decision_reason": app_row[9],
-                "created_at": str(app_row[10])
-            })
-
-        # 2. Busca eventos comportamentais no MongoDB
-        client = MongoClient(MONGO_URI)
-        db = client["finsight_behavioral"]
-        mongo_events = list(db.customer_events.find({}, {"_id": 0}).sort("timestamp", -1).limit(10))
-
-        # 3. Processa a Next Best Action baseada na última simulação
-        last_app = applications_history[0] if applications_history else {}
-        last_pd = last_app.get("pd_score", 0.0)
-        last_status = last_app.get("status", "N/A")
-        
-        monthly_inc = customer_data["annual_inc"] / 12 if customer_data["annual_inc"] > 0 else 1.0
-        monthly_debts = last_app.get("monthly_debts", 0.0)
-        dti = (monthly_debts / monthly_inc) * 100
-
-        nba = determine_next_best_action(
-            annual_inc=customer_data["annual_inc"],
-            pd_score=last_pd,
-            status=last_status,
-            dti=dti
+        decisao = avaliar_proposta_credito(
+            pd_score=pd_score,
+            renda_anual=renda_estimada,
+            dividas_mensais=proposta.dividas_mensais,
+            valor_solicitado=proposta.requested_amount
         )
+
+        try:
+            mongo_client = MongoClient(MONGO_URI)
+            db = mongo_client["finsight_behavioral"]
+            db["customer_events"].insert_one({
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "customer_name": proposta.name,
+                "pd_score": pd_score,
+                "decision": decisao["status"],
+                "requested_amount": proposta.requested_amount
+            })
+        except Exception:
+            pass
+        
+        try:
+            conn_pg = psycopg2.connect(POSTGRES_URL)
+            cur_pg = conn_pg.cursor()
+            cur_pg.execute("""
+                INSERT INTO propostas_credito (
+                    customer_name, uf, porte, modalidade, carteira_a_vencer,
+                    a_vencer_ate_90_dias, a_vencer_de_91_ate_360_dias, numero_de_operacoes,
+                    requested_amount, dividas_mensais, estimated_annual_income,
+                    pd_score, risk_rating, status, approved_limit, suggested_rate_annual, decision_reason
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (
+                proposta.name, proposta.uf, proposta.porte, proposta.modalidade,
+                carteira_base, curto_prazo_base, carteira_base - curto_prazo_base,
+                proposta.numero_de_operacoes, proposta.requested_amount, proposta.dividas_mensais,
+                renda_estimada, pd_score, decisao["risk_rating"], decisao["status"],
+                decisao["approved_limit"], decisao["suggested_rate_annual"], decisao["decision_reason"]
+            ))
+            conn_pg.commit()
+            cur_pg.close()
+            conn_pg.close()
+        except Exception as e:
+            print(f"Aviso: falha ao persistir proposta no PostgreSQL: {e}")
 
         return {
-            "customer_profile": customer_data,
-            "credit_history": applications_history,
-            "behavioral_events_log": mongo_events,
-            "next_best_action": nba
+            "customer_name": proposta.name,
+            "estimated_annual_income": round(renda_estimada, 2),
+            "evaluation": decisao
         }
 
-    except Exception as err:
-        raise HTTPException(status_code=500, detail=f"Erro ao compilar visão Customer 360: {str(err)}")
-
-@app.post("/webhooks/receiver-mock")
-def mock_webhook_receiver(event: dict):
-    """
-    Simula o receptor de automação (ex: Power Automate / CRM / Bot RPA).
-    Exibe o evento recebido e aciona as réguas operacionais.
-    """
-    event_type = event.get("event_type")
-    data = event.get("data", {})
-    decision = data.get("decision", {})
-
-    print("\n" + "="*50)
-    print(f"WEBHOOK RECEBIDO: [{event_type}]")
-    print(f"ID do Evento: {event.get('event_id')}")
-    print(f"Status da Decisão: {decision.get('status')} (PD: {decision.get('pd_score')}%)")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     
-    if event_type == "credit.rejected":
-        print("[RPA ACTION]: Cadastrando proposta em régua de acompanhamento de 90 dias.")
-        print("[RPA ACTION]: Enviando e-mail automático com justificativa e opções de renegociação.")
-    elif event_type == "credit.approved":
-        print("[RPA ACTION]: Gerando minuta contratual e disponibilizando limite no App.")
-        print("[RPA ACTION]: Enviando WhatsApp com link de assinatura digital.")
-    print("="*50 + "\n")
+@app.get('/api/dashboard-metrics')
+def get_dashboard_metrics():
+    try:
+        conn = psycopg2.connect(POSTGRES_URL)
+        cur = conn.cursor()
+        
+        # Totais consolidados do portfólio
+        cur.execute("""
+            SELECT 
+                COALESCE(SUM(carteira_ativa), 0), 
+                COALESCE(SUM(carteira_inadimplencia), 0), 
+                COUNT(*) 
+            FROM carteira_bcb_historica;
+        """)
+        carteira_ativa_total, inadimplida_total, total_registros = cur.fetchone()
+        carteira_ativa_total, inadimplida_total = float(carteira_ativa_total), float(inadimplida_total)
+        taxa_inadimplencia = (inadimplida_total / carteira_ativa_total * 100) if carteira_ativa_total > 0 else 0.0
 
-    return {"status": "event_received_and_processed"}
+        # Risco por tipo de cliente (PF vs PJ)
+        cur.execute("""
+            SELECT cliente, COALESCE(SUM(carteira_ativa),0), COALESCE(SUM(carteira_inadimplencia),0), COALESCE(SUM(ativo_problematico),0) 
+            FROM carteira_bcb_historica 
+            GROUP BY cliente;
+        """)
+        risco_pf_pj = {}
+        for cliente, carteira, inad, prob in cur.fetchall():
+            risco_pf_pj[cliente] = {
+                "carteira": float(carteira),
+                "taxa_inadimplencia": round((inad/carteira*100) if carteira > 0 else 0, 2),
+                "taxa_ativo_problematico": round((prob/carteira*100) if carteira > 0 else 0, 2),
+            }
+
+        # Agrupamento por UF para alimentar o mapa
+        cur.execute("""
+            SELECT TRIM(UPPER(uf)), COALESCE(SUM(carteira_ativa),0), COALESCE(SUM(carteira_inadimplencia),0), COALESCE(SUM(ativo_problematico),0) 
+            FROM carteira_bcb_historica 
+            WHERE uf IS NOT NULL AND TRIM(uf) != ''
+            GROUP BY TRIM(UPPER(uf)) 
+            ORDER BY TRIM(UPPER(uf)) ASC;
+        """)
+        mapa_uf = []
+        for uf_val, carteira, inad, prob in cur.fetchall():
+            sigla = str(uf_val).strip()
+            c_val = float(carteira) if carteira else 0.0
+            mapa_uf.append({
+                "uf": sigla, 
+                "carteira": c_val,
+                "taxa_inadimplencia": round((float(inad) / c_val * 100) if c_val > 0 else 0, 2),
+                "taxa_ativo_problematico": round((float(prob) / c_val * 100) if c_val > 0 else 0, 2),
+            })
+            
+        # Evolução de ativos problemáticos
+        cur.execute("""
+            SELECT data_base, COALESCE(SUM(ativo_problematico),0), COALESCE(SUM(carteira_ativa),0)
+            FROM carteira_bcb_historica
+            GROUP BY data_base ORDER BY data_base ASC;
+        """)
+        evolucao_ativo_problematico = []
+        for data_base, problematico, ativa in cur.fetchall():
+            taxa = (float(problematico) / float(ativa) * 100) if ativa > 0 else 0
+            evolucao_ativo_problematico.append({"data": data_base.strftime('%m/%y'), "valor": round(taxa, 2)})
+
+        ativo_problematico_taxa = evolucao_ativo_problematico[-1]['valor'] if evolucao_ativo_problematico else 0
+        ativo_problematico_delta = (
+            round(evolucao_ativo_problematico[-1]['valor'] - evolucao_ativo_problematico[-2]['valor'], 2)
+            if len(evolucao_ativo_problematico) >= 2 else None
+        )
+
+        cur.execute("SELECT MAX(data_base), MAX(created_at) FROM carteira_bcb_historica;")
+        ultima_data_base, carregado_em = cur.fetchone()
+        
+        cur.close()
+        conn.close()
+        
+        return {
+            "carteira_ativa_total": carteira_ativa_total,
+            "carteira_inadimplida_total": inadimplida_total,
+            "taxa_inadimplencia": round(taxa_inadimplencia, 2),
+            "total_registros_agregados": int(total_registros),
+            "risco_pf_pj": risco_pf_pj,
+            "mapa_uf": mapa_uf,
+            "ultima_atualizacao": ultima_data_base.strftime('%m/%Y') if ultima_data_base else None,
+            "carregado_em": carregado_em.strftime('%d/%m/%Y %H:%M') if carregado_em else None,
+            "ativo_problematico_taxa": ativo_problematico_taxa,
+            "ativo_problematico_delta": ativo_problematico_delta,
+            "ativo_problematico_serie": evolucao_ativo_problematico[-6:],
+        }
+    except Exception as e:
+        return {"error": str(e)}
+    
+@app.get("/api/customer-360/{customer_name}")
+def get_customer_360(customer_name: str):
+  try:
+    # 1. Buscar histórico de propostas no PostgreSQL
+    conn = psycopg2.connect(POSTGRES_URL)
+    cur = conn.cursor()
+    cur.execute(
+        """
+            SELECT requested_amount, approved_limit, pd_score, risk_rating, status, decision_reason, suggested_rate_annual
+            FROM propostas_credito 
+            WHERE LOWER(customer_name) LIKE LOWER(%s);
+        """,
+        (f"%{customer_name}%",),
+    )
+    rows = cur.fetchall()
+    propostas = []
+    for r in rows:
+      propostas.append({
+          "requested_amount": float(r[0]),
+          "approved_limit": float(r[1]),
+          "pd_score": float(r[2]),
+          "risk_rating": r[3],
+          "status": r[4],
+          "decision_reason": r[5],
+          "suggested_rate_annual": float(r[6]),
+      })
+    cur.close()
+    conn.close()
+
+    # 2. Buscar trilha de auditoria comportamental no MongoDB / Cosmos DB
+    mongo_client = MongoClient(MONGO_URI)
+    db = mongo_client["finsight_behavioral"]
+    events_cursor = db["customer_events"].find(
+        {"customer_name": {"$regex": customer_name, "$options": "i"}}, {"_id": 0}
+    )
+    eventos = list(events_cursor)
+    mongo_client.close()
+
+    return {
+        "customer_name": customer_name,
+        "total_propostas": len(propostas),
+        "propostas": propostas,
+        "eventos_comportamentais": eventos,
+    }
+  except Exception as e:
+    raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/macro/evolucao")
+def get_evolucao_macro(data_inicio: str = "01/01/2020"):
+    try:
+        df_inad_pf = _consultar_sgs(21112, data_inicio).rename(columns={'valor': 'inadimplencia_pf'})
+        df_inad_total = _consultar_sgs(21082, data_inicio).rename(columns={'valor': 'inadimplencia_total'})
+        df_selic = _consultar_sgs(432, data_inicio).rename(columns={'valor': 'selic'})
+        df_carteira = _consultar_sgs(20539, data_inicio).rename(columns={'valor': 'carteira_total'})
+
+        df = pd.merge_asof(df_inad_pf.sort_values('data'), df_selic.sort_values('data'), on='data')
+        df = pd.merge_asof(df.sort_values('data'), df_inad_total.sort_values('data'), on='data')
+        df = pd.merge_asof(df.sort_values('data'), df_carteira.sort_values('data'), on='data')
+
+        serie = [
+            {
+                "data": row['data'].strftime('%m/%Y'),
+                "inadimplencia_pf": round(row['inadimplencia_pf'], 2),
+                "selic": round(row['selic'], 2),
+                "inadimplencia_total": round(row['inadimplencia_total'], 2) if pd.notna(row['inadimplencia_total']) else None,
+                "carteira_total": round(row['carteira_total'], 2) if pd.notna(row['carteira_total']) else None,
+            }
+            for _, row in df.iterrows()
+        ]
+        return {"serie": serie}
+    except Exception as e:
+        return {"error": str(e)}
+    
+def _consultar_sgs(codigo, data_inicio="01/01/2020"):
+    url = f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados?formato=json&dataInicial={data_inicio}"
+    headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+    resp = requests.get(url, headers=headers, timeout=15)
+    resp.raise_for_status()
+    df = pd.DataFrame(resp.json())
+    df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y')
+    df['valor'] = df['valor'].astype(float)
+    return df.sort_values('data').reset_index(drop=True)
+
+def _consultar_sgs_recente(codigo):
+    # Define o período dinamicamente para pegar os últimos 367 dias
+    data_inicio = (datetime.now() - timedelta(days=367)).strftime('%d/%m/%Y')
+    url = f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados?formato=json&dataInicial={data_inicio}"
+    headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+    resp = requests.get(url, headers=headers, timeout=15)
+    resp.raise_for_status()
+    df = pd.DataFrame(resp.json())
+    df['data'] = pd.to_datetime(df['data'], format='%d/%m/%Y')
+    df['valor'] = df['valor'].astype(float)
+    return df.sort_values('data').reset_index(drop=True)
+    
+
+def _delta_periodo(df, meses=1, modo="pp"):
+    atual = df.iloc[-1]
+    alvo = atual['data'] - pd.DateOffset(months=meses)
+    anteriores = df[df['data'] <= alvo]
+    delta, valor_ant = None, None
+    if not anteriores.empty:
+        anterior = anteriores.iloc[-1]
+        valor_ant = round(anterior['valor'], 2)
+        delta = round(((atual['valor'] / anterior['valor']) - 1) * 100, 2) if modo == "pct" else round(atual['valor'] - anterior['valor'], 2)
+    return {
+        "valor_atual": round(atual['valor'], 2),
+        "valor_periodo_anterior": valor_ant,
+        "delta": delta,
+        "data_atual": atual['data'].strftime('%d/%m/%Y'),
+        # Alterado de tail(6) para tail(20) para pegar os últimos registros diários e deixar o gráfico fluido
+        "serie_recente": [{"data": r['data'].strftime('%d/%m'), "valor": round(r['valor'], 2)} for _, r in df.tail(20).iterrows()],
+    }
+
+@app.get("/api/macro/indicadores")
+def get_indicadores_macro():
+    try:
+        conn = psycopg2.connect(POSTGRES_URL)
+        cur = conn.cursor()
+
+        def _serie_indicador(indicador):
+            cur.execute("""
+                SELECT data_referencia, valor FROM indicadores_macro_historica
+                WHERE indicador = %s AND data_referencia <= CURRENT_DATE 
+                ORDER BY data_referencia ASC
+            """, (indicador,))
+            rows = cur.fetchall()
+            df = pd.DataFrame(rows, columns=["data", "valor"])
+            if not df.empty:
+                df["data"] = pd.to_datetime(df["data"])
+                df["valor"] = df["valor"].astype(float)
+            return df
+
+        def _delta(df, meses=1, modo="pp"):
+            if df.empty:
+                return {"valor_atual": None, "delta": None, "data_atual": None, "serie_recente": []}
+            atual = df.iloc[-1]
+            alvo = atual["data"] - pd.DateOffset(months=meses)
+            anteriores = df[df["data"] <= alvo]
+            delta = None
+            if not anteriores.empty:
+                anterior = anteriores.iloc[-1]
+                delta = round(((atual["valor"] / anterior["valor"]) - 1) * 100, 2) if modo == "pct" else round(atual["valor"] - anterior["valor"], 2)
+            return {
+                "valor_atual": round(atual["valor"], 2),
+                "delta": delta,
+                "data_atual": atual["data"].strftime('%m/%Y'),
+                "serie_recente": [{"data": r["data"].strftime('%d/%m/%Y'), "valor": round(r["valor"], 2)} for _, r in df.tail(30).iterrows()],
+            }
+
+        # Busca a série histórica de crédito da tabela correta (carteira_bcb_historica) para os gráficos principais
+        cur.execute("""
+            SELECT data_base, COALESCE(SUM(carteira_ativa),0), COALESCE(SUM(carteira_inadimplencia),0) 
+            FROM carteira_bcb_historica 
+            GROUP BY data_base 
+            ORDER BY data_base ASC;
+        """)
+        credito_rows = cur.fetchall()
+        
+        serie_credito = []
+        df_inad_pf_list = []
+        for dt, ativa, inad in credito_rows:
+            taxa_inad = (inad / ativa * 100) if ativa > 0 else 0
+            serie_credito.append({
+                "data": dt.strftime('%m/%Y'),
+                "carteira_total": float(ativa),
+                "inadimplencia_total": round(taxa_inad, 2),
+                "inadimplencia_pf": round(taxa_inad, 2)
+            })
+
+        resultado = {
+            "serie": serie_credito, # Necessário para alimentar o gráfico principal do Dashboard
+            "carteira_total": _delta(_serie_indicador("carteira_total"), meses=1, modo="pct"),
+            "inadimplencia_total": _delta(_serie_indicador("inadimplencia_total"), meses=1, modo="pp"),
+            "selic": _delta(_serie_indicador("selic"), meses=1, modo="pp"),
+            "ipca_12m": _delta(_serie_indicador("ipca_12m"), meses=1, modo="pp"),
+            "desocupacao": _delta(_serie_indicador("desocupacao"), meses=1, modo="pp"),
+        }
+        
+        cur.close()
+        conn.close()
+        return resultado
+    except Exception as e:
+        return {"error": str(e)}

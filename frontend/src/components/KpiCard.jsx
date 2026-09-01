@@ -1,0 +1,67 @@
+import React from 'react';
+import { ResponsiveContainer, AreaChart, Area, YAxis, Tooltip } from 'recharts';
+
+export default function KpiCard({ icon: Icon, title, value, delta, deltaSufixo, deltaInvertido, trend }) {
+  const positivo = delta !== undefined && delta !== null && (deltaInvertido ? delta <= 0 : delta >= 0);
+  const safeId = title ? title.replace(/[^a-zA-Z0-9]/g, '') : 'kpi';
+  
+  const valores = trend ? trend.map(t => t.valor).filter(v => typeof v === 'number') : [];
+  const minVal = valores.length > 0 ? Math.min(...valores) : 0;
+  const maxVal = valores.length > 0 ? Math.max(...valores) : 1;
+  const margem = (maxVal - minVal) * 0.2 || 0.5;
+  const domainMin = Number((minVal - margem).toFixed(2));
+  const domainMax = Number((maxVal + margem).toFixed(2));
+
+  return (
+    <div className="bg-slate-900/80 p-5 rounded-lg border border-slate-800/80 flex flex-col gap-1 relative overflow-hidden">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-8 h-8 rounded-full bg-purple-500/15 flex items-center justify-center shrink-0">
+          <Icon className="w-4 h-4 text-purple-400" />
+        </div>
+        <span className="text-xs text-slate-400">{title}</span>
+      </div>
+      <span className="text-2xl font-semibold text-white tracking-tight text-center block">{value}</span>
+      {delta !== undefined && delta !== null && (
+        <span className={`text-xs font-medium text-center block ${positivo ? 'text-emerald-400' : 'text-red-400'}`}>
+          {delta >= 0 ? '↑' : '↓'} {Math.abs(delta).toFixed(2)}{deltaSufixo || '%'} vs. mês anterior
+        </span>
+      )}
+      {trend && trend.length > 1 && (
+        <div className="h-12 mt-2 -mx-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={trend} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
+              <defs>
+                <linearGradient id={`gradient-${safeId}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#a855f7" stopOpacity={0.6}/>
+                  <stop offset="95%" stopColor="#a855f7" stopOpacity={0.0}/>
+                </linearGradient>
+              </defs>
+              <YAxis domain={[domainMin, domainMax]} hide />
+              <Tooltip 
+                contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11, padding: '6px 10px' }}
+                labelStyle={{ color: '#a855f7', fontSize: 11, fontWeight: 'bold', marginBottom: 2 }}
+                labelFormatter={(label, payload) => {
+                  if (payload && payload.length > 0 && payload[0].payload.data) {
+                    return `Data: ${payload[0].payload.data}`;
+                  }
+                  return `Data: ${label}`;
+                }}
+                formatter={(val) => [`${val}`, title]}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="valor" 
+                stroke="#a855f7" 
+                strokeWidth={2} 
+                fillOpacity={1} 
+                fill={`url(#gradient-${safeId})`} 
+                dot={false}
+                activeDot={{ r: 4, stroke: '#ffffff', strokeWidth: 1 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}

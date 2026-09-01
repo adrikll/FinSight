@@ -1,51 +1,46 @@
-import os
-import sys
 from fastapi.testclient import TestClient
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from src.api import app
-from src.decision_engine import evaluate_credit_decision
+from src.decision_engine import avaliar_proposta_credito
 
 client = TestClient(app)
 
+
 def test_health_check():
-    response = client.get("/health")
-    assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+  response = client.get("/health")
+  assert response.status_code == 200
+  assert response.json()["status"] == "online"
+  assert response.json()["model_loaded"] is True
+
 
 def test_decision_engine_approved():
-    decision = evaluate_credit_decision(pd_score=0.05, requested_amount=10000, annual_inc=60000)
-    assert decision["status"] == "APROVADO"
+  # Valida o motor de decisão com a assinatura atual de parâmetros
+  decisao = avaliar_proposta_credito(
+      pd_score=0.05,
+      renda_anual=60000.0,
+      dividas_mensais=500.0,
+      valor_solicitado=10000.0,
+  )
+  assert decisao["status"] == "APROVADO"
+  assert decisao["risk_rating"] == "A"
+  assert decisao["approved_limit"] > 0
 
-def test_decision_engine_rejected():
-    decision = evaluate_credit_decision(pd_score=0.35, requested_amount=10000, annual_inc=60000)
-    assert decision["status"] == "RECUSADO"
 
 def test_predict_endpoint():
-    payload = {
-        "loan_amnt": 15000.0,
-        "term": " 36 months",
-        "int_rate": 11.99,
-        "installment": 498.15,
-        "grade": "B",
-        "sub_grade": "B3",
-        "emp_length": "10+ years",
-        "home_ownership": "RENT",
-        "annual_inc": 75000.0,
-        "verification_status": "Verified",
-        "purpose": "debt_consolidation",
-        "dti": 18.5,
-        "delinq_2yrs": 0.0,
-        "inq_last_6mths": 1.0,
-        "open_acc": 10.0,
-        "pub_rec": 0.0,
-        "revol_bal": 12000.0,
-        "revol_util": 45.2,
-        "total_acc": 22.0,
-        "issue_d": "2015-12-01",
-        "earliest_cr_line": "2001-08-01"
-    }
-    response = client.post("/predict", json=payload)
-    # Aceita 200 (se modelo carregado) ou 500 caso o arquivo do modelo não esteja na máquina local sem Docker
-    assert response.status_code in [200, 500]
+  # Payload ajustado ao schema oficial do BACEN/FinSight
+  payload = {
+      "name": "Cliente Teste",
+      "carteira_a_vencer": 15000.0,
+      "a_vencer_ate_90_dias": 5000.0,
+      "a_vencer_de_91_ate_360_dias": 10000.0,
+      "numero_de_operacoes": 3,
+      "requested_amount": 20000.0,
+      "dividas_mensais": 1500.0,
+      "modalidade": "Empréstimos",
+      "porte": "Mais de 3 a 5 salários mínimos",
+      "uf": "CE",
+  }
+  response = client.post("/predict", json=payload)
+  assert response.status_code == 200
+  data = response.json()
+  assert "evaluation" in data
+  assert data["evaluation"]["status"] in ["APROVADO", "RECUSADO"]

@@ -1,36 +1,66 @@
+import os
 import pandas as pd
-from sqlalchemy import create_engine
-from pymongo import MongoClient
-import json
-from datetime import datetime
+import psycopg2
+from src.config import POSTGRES_URL
 
-#Carregar dados limpos do Parquet
-df = pd.read_parquet("data/processed/lending_club_sample.parquet")
+PARQUET_PATH = "data/processed/bcb_credit_sample.parquet"
 
-#Conexão com PostgreSQL (porta 5433)
-pg_engine = create_engine('postgresql://finsight_user:finsight_password@localhost:5433/finsight_db')
+def carregar_carteira_historica():
+    if not os.path.exists(PARQUET_PATH):
+        print(f"Arquivo {PARQUET_PATH} não encontrado.")
+        return
 
-# Tratar dados do Cliente
-df_customers = df[['annual_inc', 'emp_length', 'home_ownership', 'dti']].drop_duplicates().reset_index(drop=True)
+    df = pd.read_parquet(PARQUET_PATH)
+    print("Colunas disponíveis no Parquet:", df.columns.tolist())
+    df.columns = df.columns.str.replace("ï»¿", "", regex=False).str.strip().str.lower()
 
-#Inserir clientes na tabela tb_customers
-df_customers.to_sql('tb_customers', pg_engine, if_exists='append', index=False)
-print("Tabela tb_customers populada no PostgreSQL!")
+    conn = psycopg2.connect(POSTGRES_URL)
+    cur = conn.cursor()
 
-#Conexão MongoDB (Logs/Eventos)
-mongo_client = MongoClient('mongodb://localhost:27017/')
-db = mongo_client['finsight_events']
-collection = db['customer_journey']
+    records = []
+    for _, row in df.iterrows():
+        data_base_raw = pd.to_datetime(row.get("data_base"), errors="coerce")
+        data_base_val = data_base_raw.date() if pd.notna(data_base_raw) else None
 
-sample_events = [
-    {
-        "customer_id": 101,
-        "event_type": "loan_application_started",
-        "timestamp": datetime.now().isoformat(),
-        "channel": "mobile_app",
-        "metadata": {"requested_amount": 15000, "device": "iOS"}
-    }
-]
+        records.append((
+            data_base_val,
+            str(row.get("uf", "")),
+            str(row.get("segmento", "")),
+            str(row.get("cliente", "")),
+            str(row.get("cnae_ocupacao", "")),
+            str(row.get("porte", "")),
+            str(row.get("modalidade", "")),
+            str(row.get("submodalidade", "")),
+            str(row.get("origem", "")),
+            str(row.get("indexador", "")),
+            int(row.get("numero_de_operacoes", 0)),
+            float(row.get("carteira_a_vencer", 0.0)),
+            float(row.get("vencido_de_15_ate_90_dias", 0.0)),
+            float(row.get("vencido_acima_de_90_dias", 0.0)),
+            float(row.get("carteira_vencida", 0.0)),
+            float(row.get("carteira_ativa", 0.0)),
+            float(row.get("carteira_inadimplencia", 0.0)),
+            float(row.get("ativo_problematico", 0.0)),
+        ))
 
-collection.insert_many(sample_events)
-print("Logs de eventos criados no MongoDB!")
+    # LIMPEZA OBRIGATÓRIA: Apaga todo o histórico anterior no Azure antes de inserir a nova safra
+    print("Limpando dados antigos no PostgreSQL do Azure...")
+    cur.execute("TRUNCATE TABLE carteira_bcb_historica RESTART IDENTITY;")
+
+    print("Inserindo nova safra atualizada (últimos 12 meses)...")
+    cur.executemany("""
+        INSERT INTO carteira_bcb_historica (
+            data_base, uf, segmento, cliente, cnae_ocupacao, porte, modalidade,
+            submodalidade, origem, indexador, numero_de_operacoes, carteira_a_vencer,
+            vencido_de_15_ate_90_dias, vencido_acima_de_90_dias, carteira_vencida,
+            carteira_ativa, carteira_inadimplencia, ativo_problematico
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """, records)
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    print(f"✅ Banco no Azure atualizado com sucesso! Total de {len(records)} registros mantidos.")
+
+if __name__ == "__main__":
+    carregar_carteira_historica()

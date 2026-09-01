@@ -1,65 +1,94 @@
+import io
 import os
-import glob
-import kagglehub
+import zipfile
+import pandas as pd
 import polars as pl
+import requests
+from datetime import datetime
 
 PROCESSED_DIR = "data/processed"
-PARQUET_FILE = os.path.join(PROCESSED_DIR, "lending_club_sample.parquet")
+PARQUET_FILE = os.path.join(PROCESSED_DIR, "bcb_credit_sample.parquet")
+
+def _baixar_e_reduzir_ano(ano: int, chunksize: int = 100000) -> pd.DataFrame:
+    url = f"https://www.bcb.gov.br/pda/desig/scrdata_{ano}.zip"
+    print(f"📥 Baixando arquivo oficial do SCR.data (Ano: {ano})...")
+    headers = {"User-Agent": "Mozilla/5.0"}
+    resp = requests.get(url, headers=headers, stream=True, timeout=120)
+    resp.raise_for_status()
+
+    amostras_list = []
+    with zipfile.ZipFile(io.BytesIO(resp.content)) as z:
+        arquivos_internos = [f for f in z.namelist() if f.endswith(".csv") or f.endswith(".txt")]
+        if not arquivos_internos:
+            raise FileNotFoundError(f"Nenhum arquivo CSV encontrado dentro do ZIP do BCB ({ano}).")
+        for csv_filename in arquivos_internos:
+            print(f" 📄 Extraindo arquivo interno: {csv_filename}")
+            with z.open(csv_filename) as f:
+                reader = pd.read_csv(f, sep=";", encoding="utf-8-sig", chunksize=chunksize, low_memory=False)
+                for chunk in reader:
+                    amostras_list.append(chunk.sample(frac=0.20, random_state=42))
+
+    df = pd.concat(amostras_list, ignore_index=True)
+    df.columns = df.columns.str.strip().str.lower()
+    return df
+
+def _estratificar_por_uf(df: pd.DataFrame, n_amostra_total: int) -> pd.DataFrame:
+    col_uf = [c for c in df.columns if "uf" in c][0]
+    frac_ajuste = min(1.0, n_amostra_total / len(df))
+    df_final = (
+        df.groupby(col_uf, group_keys=False)
+        .apply(lambda x: x.sample(frac=frac_ajuste, random_state=42))
+        .reset_index(drop=True)
+    )
+    if len(df_final) > n_amostra_total:
+        df_final = df_final.sample(n=n_amostra_total, random_state=42).reset_index(drop=True)
+    return df_final
 
 def download_and_process():
     os.makedirs(PROCESSED_DIR, exist_ok=True)
-
-    print("Baixando dataset do Lending Club via kagglehub...")
-    download_path = kagglehub.dataset_download("wordsforthewise/lending-club")
-    print(f"Dataset baixado em: {download_path}")
-
-    all_csv_files = glob.glob(os.path.join(download_path, "**", "*.csv"), recursive=True)
     
-    real_csv_files = [f for f in all_csv_files if os.path.isfile(f)]
+    # Limpa arquivo parquet antigo para não acumular lixo na máquina/nuvem
+    if os.path.exists(PARQUET_FILE):
+        os.remove(PARQUET_FILE)
 
-    if not real_csv_files:
-        raise FileNotFoundError("Nenhum arquivo CSV válido foi encontrado na pasta do download.")
+    hoje = datetime.now()
+    cutoff = hoje - pd.DateOffset(months=12)
+    anos_necessarios = sorted(set([cutoff.year, hoje.year]))
 
-    # Prioriza o arquivo contendo 'accepted' no nome
-    target_csv = real_csv_files[0]
-    for f in real_csv_files:
-        if "accepted" in os.path.basename(f).lower():
-            target_csv = f
-            break
+    frames_brutos = []
+    for ano in anos_necessarios:
+        try:
+            frames_brutos.append(_baixar_e_reduzir_ano(ano))
+        except Exception as e:
+            print(f"Erro ao baixar o ano {ano}: {e}")
+    
+    if not frames_brutos:
+        raise RuntimeError("Nenhum dos anos pôde ser baixado — verifique a conexão ou os URLs do BCB.")
+    df_bruto = pd.concat(frames_brutos, ignore_index=True)
 
-    print(f"Lendo e processando o arquivo: {target_csv}")
+    df_bruto = pd.concat(frames_brutos, ignore_index=True)
+    df_bruto["data_base"] = pd.to_datetime(df_bruto["data_base"], errors="coerce")
+    df_bruto = df_bruto[df_bruto["data_base"] >= cutoff]
 
-    #Leitura otimizada com Polars
-    df = pl.read_csv(target_csv, infer_schema_length=10000, ignore_errors=True)
+    # Amostra reduzida e garantida em 30.000 registros
+    df_pandas = _estratificar_por_uf(df_bruto, n_amostra_total=30000)
 
-    #Filtrar apenas contratos finalizados
-    df_filtered = df.filter(
-        pl.col("loan_status").is_in(["Fully Paid", "Charged Off"])
-    )
+    # Conversões monetárias e alvo
+    for col in df_pandas.columns:
+        if df_pandas[col].dtype == "object":
+            amostra_val = df_pandas[col].dropna().iloc[0] if not df_pandas[col].dropna().empty else ""
+            if isinstance(amostra_val, str) and "," in amostra_val:
+                df_pandas[col] = df_pandas[col].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False).astype(float)
 
-    #Criar a variável Target (Default = 1, Fully Paid = 0)
-    df_filtered = df_filtered.with_columns(
-        pl.when(pl.col("loan_status") == "Charged Off")
-        .then(1)
-        .otherwise(0)
-        .alias("target_default")
-    )
+    if "carteira_ativa" in df_pandas.columns:
+        df_pandas = df_pandas[df_pandas["carteira_ativa"] > 10.0].copy()
 
-    #Seleção de Features Relevantes
-    selected_columns = [
-        "member_id", "loan_amnt", "term", "int_rate", "installment", "grade", "sub_grade",
-        "emp_length", "home_ownership", "annual_inc", "verification_status", "purpose",
-        "dti", "delinq_2yrs", "earliest_cr_line", "inq_last_6mths", "open_acc",
-        "pub_rec", "revol_bal", "revol_util", "total_acc", "target_default"
-    ]
+    col_vencido = "vencido_acima_de_90_dias" if "vencido_acima_de_90_dias" in df_pandas.columns else "carteira_inadimplencia"
+    df_pandas["target_default"] = ((df_pandas[col_vencido] / (df_pandas["carteira_ativa"] + 1e-5)) > 0.05).astype(int)
 
-    df_clean = df_filtered.select([c for c in selected_columns if c in df_filtered.columns])
-
-    #Amostragem representativa (200.000 registros) e escrita em Parquet
-    df_sample = df_clean.sample(n=200000, seed=42)
-    df_sample.write_parquet(PARQUET_FILE)
-
-    print(f"Sucesso! {df_sample.height} linhas exportadas para '{PARQUET_FILE}'.")
+    df_polars = pl.from_pandas(df_pandas)
+    df_polars.write_parquet(PARQUET_FILE)
+    print(f"Sucesso! Amostra atualizada com {df_polars.height} registros (30k) salvos em {PARQUET_FILE}.")
 
 if __name__ == "__main__":
     download_and_process()

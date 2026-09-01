@@ -1,15 +1,22 @@
-echo "=== FinSight Pipeline: Fase 1 ==="
+#!/bin/bash
+set -e
 
-# 1. Subir a infraestrutura de Bancos no Docker
-echo "[1/3] Subindo contêineres PostgreSQL e MongoDB..."
-docker-compose up -d
+echo "=================================================="
+echo "INICIANDO EXECUTOR DO PIPELINE FINSIGHT (BACEN)"
+echo "=================================================="
 
-# 2. Executar Download e ETL automatizado
-echo "[2/3] Executando pipeline Python (Kaggle API + Polars)..."
-python src/data_prep.py
+echo "Etapa 1: Ingestão e Amostragem Estratificada do BACEN..."
+python data_prep.py
 
-# 3. Carregar dados processados nas bases SQL e NoSQL
-echo "[3/3] Populando banco PostgreSQL e MongoDB..."
-python src/database_load.py
+echo "Etapa 2: Carga de Amostra Inicial no PostgreSQL Azure..."
+python database_load.py
 
-echo "Fase 1 concluída com sucesso sem intervenção manual!"
+echo "Etapa 3: Treinando Stacking Ensemble e Registrando no MLflow..."
+python src/train.py
+
+echo "Etapa 4: Executando Suíte de Testes Automatizados (Pytest)..."
+pytest tests/test_api.py -v
+
+echo "=================================================="
+echo "PIPELINE FINSIGHT CONCLUÍDO COM SUCESSO!"
+echo "=================================================="
