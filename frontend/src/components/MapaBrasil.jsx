@@ -16,9 +16,11 @@ export default function MapaBrasil({ mapaUf, metricaMapa, ufSelecionada, onSelec
   return (
     <ComposableMap 
       projection="geoMercator" 
-      projectionConfig={{ scale: 480, center: [-53, -15] }} 
+      projectionConfig={{ scale: 550, center: [-53, -15] }} 
       width={460} 
       height={380}
+      viewBox="0 0 460 380"
+      style={{ width: '100%', height: '100%', maxHeight: '220px' }}
     >
       <Geographies geography={GEO_URL}>
         {({ geographies }) =>

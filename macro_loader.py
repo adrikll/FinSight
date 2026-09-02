@@ -10,7 +10,8 @@ SERIES_BCB = {
     "ipca_12m": 13522,
     "desocupacao": 24369,
     "carteira_total": 20539,          # Saldo da carteira de crédito - Total
-    "inadimplencia_total": 21082, 
+    "inadimplencia_total": 21082,
+    "juros_medios": 20716,
 }
 
 def carregar_macro_automatico():

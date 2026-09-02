@@ -26,3 +26,4 @@ httpx
 azure-storage-blob
 azure-identity
 azure-keyvault-secrets
+kagglehub

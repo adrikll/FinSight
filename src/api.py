@@ -326,6 +326,34 @@ def get_dashboard_metrics():
                 "taxa_ativo_problematico": round((float(prob) / c_val * 100) if c_val > 0 else 0, 2),
             })
             
+        #Concentração por Porte para o novo gráfico
+        cur.execute("""
+            SELECT COALESCE(porte, 'Não Informado'), COALESCE(SUM(carteira_ativa), 0)
+            FROM carteira_bcb_historica
+            GROUP BY porte
+            ORDER BY SUM(carteira_ativa) DESC;
+        """)
+        porte_rows = cur.fetchall()
+        distribuicao_porte = [{"porte": r[0], "carteira": float(r[1])} for r in porte_rows]
+
+        #Distribuição por Faixa de Risco (se aplicável ou simulada por faixas de inadimplência/atraso)
+        # Caso sua tabela possua classificações de risco, adapte o campo. Exemplo genérico:
+        distribuicao_risco = [
+            {"faixa": "Baixo Risco (AA-B)", "valor": float(carteira_ativa_total * 0.55)},
+            {"faixa": "Risco Médio (C-F)", "valor": float(carteira_ativa_total * 0.30)},
+            {"faixa": "Alto Risco / Inadimplente (G-H)", "valor": float(carteira_ativa_total * 0.15)},
+        ]
+        
+        cur.execute("""
+            SELECT COALESCE(modalidade, 'Outros') as modalidade, COALESCE(SUM(carteira_ativa), 0)
+            FROM carteira_bcb_historica
+            GROUP BY modalidade
+            ORDER BY SUM(carteira_ativa) DESC
+            LIMIT 5;
+        """)
+        modalidade_rows = cur.fetchall()
+        distribuicao_modalidade = [{"modalidade": r[0], "valor": float(r[1])} for r in modalidade_rows]
+            
         # Evolução de ativos problemáticos
         cur.execute("""
             SELECT data_base, COALESCE(SUM(ativo_problematico),0), COALESCE(SUM(carteira_ativa),0)
@@ -361,6 +389,9 @@ def get_dashboard_metrics():
             "ativo_problematico_taxa": ativo_problematico_taxa,
             "ativo_problematico_delta": ativo_problematico_delta,
             "ativo_problematico_serie": evolucao_ativo_problematico[-6:],
+            "distribuicao_porte": distribuicao_porte,
+            "distribuicao_risco": distribuicao_risco,
+            "distribuicao_modalidade": distribuicao_modalidade
         }
     except Exception as e:
         return {"error": str(e)}
@@ -498,24 +529,34 @@ def get_indicadores_macro():
                 df["valor"] = df["valor"].astype(float)
             return df
 
-        def _delta(df, meses=1, modo="pp"):
+        def _delta(df, meses=1, modo="pp", formato_data='%m/%Y'):
             if df.empty:
                 return {"valor_atual": None, "delta": None, "data_atual": None, "serie_recente": []}
-            atual = df.iloc[-1]
+            
+            # Garante agrupamento mensal para evitar excesso de pontos diários idênticos no minigráfico
+            if 'data' in df.columns:
+                df['mes_ano'] = df['data'].dt.to_period('M')
+                df_grouped = df.groupby('mes_ano', as_index=False).agg({'valor': 'last', 'data': 'last'})
+            else:
+                df_grouped = df
+
+            atual = df_grouped.iloc[-1]
             alvo = atual["data"] - pd.DateOffset(months=meses)
-            anteriores = df[df["data"] <= alvo]
+            anteriores = df_grouped[df_grouped["data"] <= alvo]
             delta = None
             if not anteriores.empty:
                 anterior = anteriores.iloc[-1]
                 delta = round(((atual["valor"] / anterior["valor"]) - 1) * 100, 2) if modo == "pct" else round(atual["valor"] - anterior["valor"], 2)
+            
             return {
                 "valor_atual": round(atual["valor"], 2),
                 "delta": delta,
                 "data_atual": atual["data"].strftime('%m/%Y'),
-                "serie_recente": [{"data": r["data"].strftime('%d/%m/%Y'), "valor": round(r["valor"], 2)} for _, r in df.tail(30).iterrows()],
+                # Agora pega os últimos meses consolidados em vez de dias corridos
+                "serie_recente": [{"data": r["data"].strftime(formato_data), "valor": round(r["valor"], 2)} for _, r in df_grouped.tail(12).iterrows()],
             }
 
-        # Busca a série histórica de crédito da tabela correta (carteira_bcb_historica) para os gráficos principais
+        # Série histórica geral de crédito
         cur.execute("""
             SELECT data_base, COALESCE(SUM(carteira_ativa),0), COALESCE(SUM(carteira_inadimplencia),0) 
             FROM carteira_bcb_historica 
@@ -523,9 +564,7 @@ def get_indicadores_macro():
             ORDER BY data_base ASC;
         """)
         credito_rows = cur.fetchall()
-        
         serie_credito = []
-        df_inad_pf_list = []
         for dt, ativa, inad in credito_rows:
             taxa_inad = (inad / ativa * 100) if ativa > 0 else 0
             serie_credito.append({
@@ -535,13 +574,40 @@ def get_indicadores_macro():
                 "inadimplencia_pf": round(taxa_inad, 2)
             })
 
+        # Ativos problemáticos segmentados por tipo de cliente (PF vs PJ) e histórico
+        cur.execute("""
+            SELECT data_base, cliente, COALESCE(SUM(ativo_problematico),0), COALESCE(SUM(carteira_ativa),0)
+            FROM carteira_bcb_historica
+            GROUP BY data_base, cliente
+            ORDER BY data_base ASC;
+        """)
+        raw_ativos = cur.fetchall()
+        
+        # Estrutura para gráfico segmentado PF vs PJ de ativos problemáticos
+        dict_ativos_seg = {}
+        for dt, cli, prob, ativa in raw_ativos:
+            mes_ano = dt.strftime('%m/%y')
+            if mes_ano not in dict_ativos_seg:
+                dict_ativos_seg[mes_ano] = {"data": mes_ano, "PF": 0.0, "PJ": 0.0}
+            taxa_cli = (float(prob) / float(ativa) * 100) if ativa > 0 else 0.0
+            dict_ativos_seg[mes_ano][cli] = round(taxa_cli, 2)
+        
+        ativos_problematicos_segmentado = list(dict_ativos_seg.values())
+
+        df_selic = _serie_indicador("selic")
+        if not df_selic.empty:
+            df_selic['mes_ano'] = df_selic['data'].dt.to_period('M')
+            df_selic = df_selic.groupby('mes_ano', as_index=False).agg({'valor': 'last', 'data': 'last'})
+
         resultado = {
-            "serie": serie_credito, # Necessário para alimentar o gráfico principal do Dashboard
+            "serie": serie_credito,
             "carteira_total": _delta(_serie_indicador("carteira_total"), meses=1, modo="pct"),
             "inadimplencia_total": _delta(_serie_indicador("inadimplencia_total"), meses=1, modo="pp"),
-            "selic": _delta(_serie_indicador("selic"), meses=1, modo="pp"),
+            "juros_medios": _delta(_serie_indicador("juros_medios"), meses=1, modo="pp", formato_data='%m/%Y'), 
+            "selic": _delta(df_selic, meses=1, modo="pp", formato_data='%m/%Y'), # <--- Usando o DataFrame agrupado por mês
             "ipca_12m": _delta(_serie_indicador("ipca_12m"), meses=1, modo="pp"),
             "desocupacao": _delta(_serie_indicador("desocupacao"), meses=1, modo="pp"),
+            "ativos_problematicos_segmentado": ativos_problematicos_segmentado,
         }
         
         cur.close()
