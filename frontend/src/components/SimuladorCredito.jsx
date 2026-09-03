@@ -3,22 +3,58 @@ import React, { useState } from 'react';
 export default function SimuladorCredito() {
   const [formData, setFormData] = useState({
     name: '',
-    requested_amount: '',
-    renda_mensal: '',
-    despesas_mensais: '',
-    possui_emprestimos: 'Não',
-    parcela_emprestimos_atual: '',
-    modalidade: 'Empréstimos',
-    porte: 'Mais de 3 a 5 salários mínimos',
-    uf: 'CE'
+    age: '30',
+    annualincome: '90.000,00',
+    monthlyincome: '7.500,00',
+    employmentstatus: 'employed',
+    educationlevel: 'bachelor',
+    experience: '5',
+    loanamount: '20.000,00',
+    loanduration: '36',
+    maritalstatus: 'single',
+    numberofdependents: '0',
+    homeownershipstatus: 'rent',
+    monthlydebtpayments: '1.200,00',
+    creditcardutilizationrate: '0.3',
+    savingsaccountbalance: '15.000,00',
+    checkingaccountbalance: '4.000,00',
+    totalassets: '50.000,00',
+    totalliabilities: '10.000,00',
+    jobtenure: '3',
+    networth: '40.000,00',
+    loanpurpose: 'debt consolidation',
+    uf: 'SP'
   });
 
   const [resultado, setResultado] = useState(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState(null);
 
+  // Função para formatar o número enquanto o usuário digita (ex: 7500 vira 7.500)
+  const formatarMoedaInput = (valor) => {
+    let apenasNumeros = valor.replace(/\D/g, '');
+    if (!apenasNumeros) return '';
+    let numeroDecimal = (parseFloat(apenasNumeros) / 100).toFixed(2);
+    let partes = numeroDecimal.split('.');
+    partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `${partes[0]},${partes[1]}`;
+  };
+
+  const handleCurrencyChange = (e) => {
+    const { name, value } = e.target;
+    const valorFormatado = formatarMoedaInput(value);
+    setFormData({ ...formData, [name]: valorFormatado });
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // Converte a string formatada em float puro para enviar à API
+  const parseMoedaToFloat = (valorStr) => {
+    if (!valorStr) return 0.0;
+    const limpo = valorStr.toString().replace(/\./g, '').replace(',', '.');
+    return parseFloat(limpo) || 0.0;
   };
 
   const handleSubmit = async (e) => {
@@ -26,38 +62,32 @@ export default function SimuladorCredito() {
     setLoading(true);
     setErro(null);
 
-    const valorSolicitado = parseFloat(formData.requested_amount) || 0;
-    const despesasMensais = parseFloat(formData.despesas_mensais) || 0;
-    const temEmprestimo = formData.possui_emprestimos === 'Sim';
-    const parcelaAtual = parseFloat(formData.parcela_emprestimos_atual) || 0;
-    const dividasTotaisMensais = despesasMensais + (temEmprestimo ? parcelaAtual : 0);
-
-    // Conversão inteligente da faixa de porte selecionada para um valor de renda mensal aproximado
-    let rendaMensalEstimada = 1412.0; // Padrão 1 salário mínimo
-    if (formData.porte === 'Mais de 1 a 3 salários mínimos') rendaMensalEstimada = 3000.0;
-    if (formData.porte === 'Mais de 3 a 5 salários mínimos') rendaMensalEstimada = 5000.0;
-    if (formData.porte === 'Mais de 5 salários mínimos') rendaMensalEstimada = 8500.0;
-    
-    const numero_de_operacoes = temEmprestimo ? 2 : 0;
-    const carteira_a_vencer = temEmprestimo ? parcelaAtual * 15 : 0.0; 
-    const a_vencer_ate_90_dias = temEmprestimo ? parcelaAtual * 3 : 0.0;
-    const a_vencer_de_91_ate_360_dias = carteira_a_vencer - a_vencer_ate_90_dias;
-
     try {
       const response = await fetch('http://127.0.0.1:8000/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: formData.name,
-          carteira_a_vencer: parseFloat(carteira_a_vencer),
-          a_vencer_ate_90_dias: parseFloat(a_vencer_ate_90_dias),
-          a_vencer_de_91_ate_360_dias: parseFloat(a_vencer_de_91_ate_360_dias > 0 ? a_vencer_de_91_ate_360_dias : 0),
-          numero_de_operacoes: parseInt(numero_de_operacoes),
-          requested_amount: valorSolicitado,
-          dividas_mensais: dividasTotaisMensais,
-          renda_informada: rendaMensalEstimada, // Enviando o valor numérico para o backend
-          modalidade: formData.modalidade,
-          porte: formData.porte,
+          age: parseInt(formData.age) || 0,
+          annualincome: parseMoedaToFloat(formData.annualincome),
+          monthlyincome: parseMoedaToFloat(formData.monthlyincome),
+          employmentstatus: formData.employmentstatus,
+          educationlevel: formData.educationlevel,
+          experience: parseFloat(formData.experience) || 0,
+          loanamount: parseMoedaToFloat(formData.loanamount),
+          loanduration: parseInt(formData.loanduration) || 12,
+          maritalstatus: formData.maritalstatus,
+          numberofdependents: parseInt(formData.numberofdependents) || 0,
+          homeownershipstatus: formData.homeownershipstatus,
+          monthlydebtpayments: parseMoedaToFloat(formData.monthlydebtpayments),
+          creditcardutilizationrate: parseFloat(formData.creditcardutilizationrate) || 0,
+          savingsaccountbalance: parseMoedaToFloat(formData.savingsaccountbalance),
+          checkingaccountbalance: parseMoedaToFloat(formData.checkingaccountbalance),
+          totalassets: parseMoedaToFloat(formData.totalassets),
+          totalliabilities: parseMoedaToFloat(formData.totalliabilities),
+          jobtenure: parseFloat(formData.jobtenure) || 0,
+          networth: parseMoedaToFloat(formData.networth),
+          loanpurpose: formData.loanpurpose,
           uf: formData.uf
         })
       });
@@ -74,177 +104,148 @@ export default function SimuladorCredito() {
   };
 
   return (
-    <div className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 shadow-xl max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-xl font-black text-white">Simulador Inteligente de Crédito</h2>
-        <p className="text-xs text-slate-400 mt-1">Responda perguntas simples. Nosso motor calcula os índices técnicos automaticamente nos bastidores.</p>
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center bg-slate-900/60 p-6 rounded-lg border border-slate-800/80">
+        <div>
+          <h2 className="text-xl font-semibold text-white tracking-tight">Simulador Inteligente de Crédito</h2>
+          <p className="text-sm text-slate-400 mt-1">
+            Análise de risco baseada em perfil socioeconômico e capacidade financeira declarada.
+          </p>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        
-        {/* Nome */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">Qual é o nome completo do cliente?</label>
-          <input 
-            type="text" 
-            name="name" 
-            required 
-            value={formData.name} 
-            onChange={handleChange} 
-            placeholder="Digite o nome completo" 
-            className="w-full p-2.5 bg-slate-800 rounded-xl border border-slate-700 text-sm text-white" 
-          />
-        </div>
-
-        {/* Valor Solicitado com R$ fixo */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">Quanto de crédito você está solicitando?</label>
-          <div className="relative flex items-center">
-            <span className="absolute left-3 text-sm font-bold text-slate-400">R$</span>
-            <input 
-              type="number" 
-              name="requested_amount" 
-              required 
-              value={formData.requested_amount} 
-              onChange={handleChange} 
-              placeholder="0,00" 
-              className="w-full pl-9 pr-3 py-2.5 bg-slate-800 rounded-xl border border-slate-700 text-sm text-white" 
-            />
-          </div>
-        </div>
-
-        {/* Porte da Renda / Enquadramento */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">Qual a sua faixa de rendimento (Porte)?</label>
-          <select 
-            name="porte" 
-            value={formData.porte} 
-            onChange={handleChange} 
-            className="w-full p-2.5 bg-slate-800 rounded-xl border border-slate-700 text-sm text-white"
-          >
-            <option value="Até 1 salário mínimo">Até 1 salário mínimo</option>
-            <option value="Mais de 1 a 3 salários mínimos">Mais de 1 a 3 salários mínimos</option>
-            <option value="Mais de 3 a 5 salários mínimos">Mais de 3 a 5 salários mínimos</option>
-            <option value="Mais de 5 salários mínimos">Mais de 5 salários mínimos</option>
-          </select>
-        </div>
-
-        {/* Despesas Mensais com R$ fixo */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">Quais são suas despesas mensais fixas?</label>
-          <div className="relative flex items-center">
-            <span className="absolute left-3 text-sm font-bold text-slate-400">R$</span>
-            <input 
-              type="number" 
-              name="despesas_mensais" 
-              required 
-              value={formData.despesas_mensais} 
-              onChange={handleChange} 
-              placeholder="0,00" 
-              className="w-full pl-9 pr-3 py-2.5 bg-slate-800 rounded-xl border border-slate-700 text-sm text-white" 
-            />
-          </div>
-        </div>
-
-        {/* Possui empréstimos */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">Você possui empréstimos ou financiamentos ativos?</label>
-          <select 
-            name="possui_emprestimos" 
-            value={formData.possui_emprestimos} 
-            onChange={handleChange} 
-            className="w-full p-2.5 bg-slate-800 rounded-xl border border-slate-700 text-sm text-white"
-          >
-            <option value="Não">Não</option>
-            <option value="Sim">Sim</option>
-          </select>
-        </div>
-
-        {/* Parcela Atual Condicional com R$ fixo */}
-        {formData.possui_emprestimos === 'Sim' && (
+      <div className="bg-slate-900/80 p-8 rounded-lg border border-slate-800/80 shadow-xl">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Quanto você paga de parcela mensal nesses empréstimos?</label>
-            <div className="relative flex items-center">
-              <span className="absolute left-3 text-sm font-bold text-slate-400">R$</span>
-              <input 
-                type="number" 
-                name="parcela_emprestimos_atual" 
-                required 
-                value={formData.parcela_emprestimos_atual} 
-                onChange={handleChange} 
-                placeholder="0,00" 
-                className="w-full pl-9 pr-3 py-2.5 bg-slate-800 rounded-xl border border-slate-700 text-sm text-white" 
-              />
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Nome Completo do Cliente</label>
+            <input type="text" name="name" required value={formData.name} onChange={handleChange} placeholder="Digite o nome completo" className="w-full p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white focus:border-purple-500 focus:outline-none" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Qual a sua idade?</label>
+            <input type="number" name="age" required value={formData.age} onChange={handleChange} placeholder="Ex: 30" className="w-full p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white focus:border-purple-500 focus:outline-none" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Qual o valor da sua Renda Mensal?</label>
+            <div className="relative">
+              <span className="absolute left-3 top-3 text-xs font-semibold text-slate-400">R$</span>
+              <input type="text" name="monthlyincome" required value={formData.monthlyincome} onChange={handleCurrencyChange} className="w-full pl-9 p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white focus:border-purple-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Qual o valor da sua Renda Anual estimada?</label>
+            <div className="relative">
+              <span className="absolute left-3 top-3 text-xs font-semibold text-slate-400">R$</span>
+              <input type="text" name="annualincome" required value={formData.annualincome} onChange={handleCurrencyChange} className="w-full pl-9 p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white focus:border-purple-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Quanto de empréstimo você deseja solicitar?</label>
+            <div className="relative">
+              <span className="absolute left-3 top-3 text-xs font-semibold text-slate-400">R$</span>
+              <input type="text" name="loanamount" required value={formData.loanamount} onChange={handleCurrencyChange} className="w-full pl-9 p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white focus:border-purple-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Quanto você paga de dívidas/empréstimos por mês?</label>
+            <div className="relative">
+              <span className="absolute left-3 top-3 text-xs font-semibold text-slate-400">R$</span>
+              <input type="text" name="monthlydebtpayments" required value={formData.monthlydebtpayments} onChange={handleCurrencyChange} className="w-full pl-9 p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white focus:border-purple-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Valor Total dos Seus Bens (Carros, Imóveis, Investimentos...)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-3 text-xs font-semibold text-slate-400">R$</span>
+              <input type="text" name="totalassets" required value={formData.totalassets} onChange={handleCurrencyChange} className="w-full pl-9 p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white focus:border-purple-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Valor Total de Outras Dívidas Ativas (Financiamentos, Cartões...)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-3 text-xs font-semibold text-slate-400">R$</span>
+              <input type="text" name="totalliabilities" required value={formData.totalliabilities} onChange={handleCurrencyChange} className="w-full pl-9 p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white focus:border-purple-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Patrimônio Líquido Estimado (Bens menos Dívidas)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-3 text-xs font-semibold text-slate-400">R$</span>
+              <input type="text" name="networth" required value={formData.networth} onChange={handleCurrencyChange} className="w-full pl-9 p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white focus:border-purple-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Qual a sua Situação Profissional?</label>
+            <select name="employmentstatus" value={formData.employmentstatus} onChange={handleChange} className="w-full p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white focus:border-purple-500 focus:outline-none">
+              <option value="employed">Empregado (CLT)</option>
+              <option value="self-employed">Autônomo / Empresário</option>
+              <option value="unemployed">Desempregado</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Qual a finalidade deste empréstimo?</label>
+            <select name="loanpurpose" value={formData.loanpurpose} onChange={handleChange} className="w-full p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white focus:border-purple-500 focus:outline-none">
+              <option value="debt consolidation">Quitação de Dívidas</option>
+              <option value="home improvement">Reforma Residencial</option>
+              <option value="business">Investimento no Negócio</option>
+              <option value="personal">Pessoal / Geral</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Qual o seu Estado (UF)?</label>
+            <input type="text" name="uf" maxLength={2} required value={formData.uf} onChange={handleChange} placeholder="Ex: SP, RJ, CE" className="w-full p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-sm text-white uppercase focus:border-purple-500 focus:outline-none" />
+          </div>
+
+          <div className="md:col-span-3 mt-2">
+            <button type="submit" disabled={loading} className="w-full py-3.5 bg-purple-600 hover:bg-purple-500 font-medium rounded-lg text-white transition-colors shadow-lg shadow-purple-900/20 text-sm">
+              {loading ? 'Processando Análise com IA...' : 'Simular Crédito com IA'}
+            </button>
+          </div>
+        </form>
+
+        {erro && <div className="mt-4 p-4 bg-red-950/40 border border-red-700/50 text-red-300 rounded-lg text-xs">{erro}</div>}
+
+        {resultado && resultado.evaluation && (
+          <div className="mt-8 pt-6 border-t border-slate-800/80 space-y-4">
+            <h3 className="text-sm font-medium text-white mb-3">Resultado Detalhado da Análise de Crédito</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-slate-950/60 rounded-lg border border-slate-800">
+                <span className="text-[11px] text-slate-400 font-medium block mb-1">DECISÃO</span>
+                <p className={`text-base font-semibold ${resultado.evaluation.status === 'APROVADO' ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {resultado.evaluation.status}
+                </p>
+              </div>
+              <div className="p-4 bg-slate-950/60 rounded-lg border border-slate-800">
+                <span className="text-[11px] text-slate-400 font-medium block mb-1">NÍVEL DE RISCO</span>
+                <p className="text-base font-semibold text-amber-400">{resultado.evaluation.risk_rating}</p>
+              </div>
+              <div className="p-4 bg-slate-950/60 rounded-lg border border-slate-800">
+                <span className="text-[11px] text-slate-400 font-medium block mb-1">SCORE DE PROBABILIDADE</span>
+                <p className="text-base font-semibold text-cyan-400">{resultado.evaluation.approval_probability}%</p>
+              </div>
+              <div className="p-4 bg-slate-950/60 rounded-lg border border-slate-800">
+                <span className="text-[11px] text-slate-400 font-medium block mb-1">LIMITE DISPONÍVEL</span>
+                <p className="text-base font-semibold text-white">R$ {resultado.evaluation.approved_limit.toLocaleString('pt-BR')}</p>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-950/60 rounded-lg border border-slate-800 text-xs text-slate-300 leading-relaxed">
+              <strong className="text-white font-medium block mb-1">Análise Explicativa do Perfil:</strong> 
+              {resultado.evaluation.decision_reason}
             </div>
           </div>
         )}
-
-        {/* Estado (UF) */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">Qual o seu Estado (UF)?</label>
-          <input 
-            type="text" 
-            name="uf" 
-            required 
-            maxLength={2}
-            value={formData.uf} 
-            onChange={handleChange} 
-            placeholder="Ex: CE, SP, RJ" 
-            className="w-full p-2.5 bg-slate-800 rounded-xl border border-slate-700 text-sm text-white uppercase" 
-          />
-        </div>
-
-        {/* Modalidade de Crédito Oficial */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">Modalidade da Operação</label>
-          <select 
-            name="modalidade" 
-            value={formData.modalidade} 
-            onChange={handleChange} 
-            className="w-full p-2.5 bg-slate-800 rounded-xl border border-slate-700 text-sm text-white"
-          >
-            <option value="Empréstimos">Empréstimos</option>
-            <option value="Financiamentos">Financiamentos</option>
-            <option value="Cartão de Crédito">Cartão de Crédito</option>
-            <option value="Adiantamento a Depositantes">Adiantamento a Depositantes</option>
-          </select>
-        </div>
-
-        <div className="md:col-span-2 mt-4">
-          <button type="submit" disabled={loading} className="w-full py-3 bg-purple-600 hover:bg-purple-500 font-bold rounded-xl text-white transition-all shadow-lg shadow-purple-600/30">
-            {loading ? 'Analisando Risco & Capacidade...' : 'Processar Decisão de Crédito'}
-          </button>
-        </div>
-      </form>
-
-      {erro && <div className="mt-4 p-3 bg-red-950/40 border border-red-700 text-red-300 rounded-xl text-xs">{erro}</div>}
-
-      {resultado && resultado.evaluation && (
-        <div className="mt-6 p-6 bg-slate-950/60 rounded-2xl border border-slate-800">
-          <h3 className="text-lg font-bold mb-4 text-purple-400">Resultado da Análise</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Status</span>
-              <p className={`text-base font-black ${resultado.evaluation.status === 'APROVADO' ? 'text-emerald-400' : 'text-red-400'}`}>
-                {resultado.evaluation.status}
-              </p>
-            </div>
-            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Rating de Risco</span>
-              <p className="text-base font-black text-amber-400">{resultado.evaluation.risk_rating}</p>
-            </div>
-            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Limite Aprovado</span>
-              <p className="text-base font-black text-white">R$ {resultado.evaluation.approved_limit.toLocaleString('pt-BR')}</p>
-            </div>
-            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold">Taxa de Juros</span>
-              <p className="text-base font-black text-cyan-400">{resultado.evaluation.suggested_rate_annual}% a.a.</p>
-            </div>
-          </div>
-          <p className="text-xs text-slate-300 italic bg-slate-900 p-3 rounded-xl border border-slate-800"><strong>Motivo:</strong> {resultado.evaluation.decision_reason}</p>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

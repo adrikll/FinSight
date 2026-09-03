@@ -4,6 +4,7 @@ from config import POSTGRES_URL, MONGO_URI
 
 def init_postgres():
     commands = [
+        # Mantém o histórico de propostas de crédito dos usuários
         """
         CREATE TABLE IF NOT EXISTS propostas_credito (
             id SERIAL PRIMARY KEY,
@@ -27,8 +28,10 @@ def init_postgres():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """,
+        # Recria a carteira histórica do BCB para evitar crescimento exponencial
+        "DROP TABLE IF EXISTS carteira_bcb_historica CASCADE;",
         """
-        CREATE TABLE IF NOT EXISTS carteira_bcb_historica (
+        CREATE TABLE carteira_bcb_historica (
             id SERIAL PRIMARY KEY,
             data_base DATE,
             uf VARCHAR(2),
@@ -51,12 +54,66 @@ def init_postgres():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """,
+        # Recria os indicadores macroeconômicos (atualizados diariamente/mensalmente)
+        "DROP TABLE IF EXISTS indicadores_macro_historica CASCADE;",
         """
-        CREATE TABLE IF NOT EXISTS indicadores_macro_historica (
+        CREATE TABLE indicadores_macro_historica (
             id SERIAL PRIMARY KEY,
             data_referencia DATE NOT NULL,
             indicador VARCHAR(50) NOT NULL,
             valor NUMERIC(20,4) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        # Recria as transações do Pix (amostra controlada de 30k)
+        "DROP TABLE IF EXISTS pix_transacoes_historica CASCADE;",
+        """
+        CREATE TABLE pix_transacoes_historica (
+            id SERIAL PRIMARY KEY,
+            anomes INT,
+            pag_pfpj VARCHAR(50),
+            rec_pfpj VARCHAR(50),
+            pag_regiao VARCHAR(50),
+            rec_regiao VARCHAR(50),
+            pag_idade VARCHAR(50),
+            rec_idade VARCHAR(50),
+            formainiciacao VARCHAR(100),
+            natureza VARCHAR(100),
+            finalidade VARCHAR(100),
+            valor NUMERIC(18,2),
+            quantidade BIGINT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+        # Recria as estatísticas de fraudes e MED do Pix
+        "DROP TABLE IF EXISTS pix_fraudes_historica CASCADE;",
+        """
+        CREATE TABLE pix_fraudes_historica (
+            id SERIAL PRIMARY KEY,
+            anomes INT,
+            qtdepixcontestados BIGINT,
+            qtdecontestacoesaceitas BIGINT,
+            qtdecontestacoesrejeitadas BIGINT,
+            qtdecontestacoesaceitasacada100mil NUMERIC(15,4),
+            qtdeusuarioscommarcacoesdefraude BIGINT,
+            qtdechavespixcommarcacoesdefraude BIGINT,
+            valorpixcontestadosaceitos NUMERIC(18,2),
+            quantidadedevolvidaintegralmentepormeiodomed BIGINT,
+            valorpixdevolvidosintegralmente NUMERIC(18,2),
+            quantidadedevolvidaparcialmentepormeiodomed BIGINT,
+            valorpixdevolvidosparcialmente NUMERIC(18,2),
+            valorpixresidualnaodevolvido NUMERIC(18,2),
+            quantidadedenaodevolvidossaldoinsuficiente BIGINT,
+            valorpixnaodevolvidossaldoinsuficiente NUMERIC(18,2),
+            quantidadedenaodevolvidoscontaencerrada BIGINT,
+            valornaodevolvidoscontaencerrada NUMERIC(18,2),
+            quantidadedenaodevolvidosmotivosdiversos BIGINT,
+            valorpixnaodevolvidosmotivosdiversos NUMERIC(18,2),
+            percentualdedevolucao NUMERIC(5,2),
+            qtdepixbloqueadoscautelarmenteeliberados BIGINT,
+            valorpixbloqueadoscautelarmenteeliberados NUMERIC(18,2),
+            qtdepixbloqueadoscautelarmenteedevolvidos BIGINT,
+            valorpixbloqueadoscautelarmenteedevolvidos NUMERIC(18,2),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
@@ -72,7 +129,7 @@ def init_postgres():
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ Tabelas essenciais do Dashboard criadas/sincronizadas com sucesso no PostgreSQL!")
+        print("✅ Tabelas essenciais do Dashboard recriadas e limpas com sucesso no PostgreSQL!")
     except Exception as e:
         print(f"❌ Erro ao inicializar PostgreSQL: {e}")
 

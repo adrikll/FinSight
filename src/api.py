@@ -2,20 +2,19 @@ import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import psycopg2
 from pymongo import MongoClient
 from datetime import datetime, timezone, timedelta
+import json
 import requests
 
 from src.config import POSTGRES_URL, MONGO_URI
-from src.feature_engineering import feature_engineering_avancada, load_income_bins
+from src.feature_engineering import feature_engineering_avancada
 from src.decision_engine import avaliar_proposta_credito
-import json
 
-app = FastAPI(title="FinSight Credit Engine API", version="2.0.0")
+app = FastAPI(title="FinSight Credit & Pix Engine API", version="3.2.0")
 
-# Middleware de CORS posicionado imediatamente após a criação do app
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,195 +24,46 @@ app.add_middleware(
 )
 
 MODEL_PATH = "artifacts/champion_model.pkl"
-BINS_PATH = "artifacts/income_bins.json"
-
 pipeline = joblib.load(MODEL_PATH)
-income_bins = load_income_bins(BINS_PATH)
 
-class PropostaCreditoRequest(BaseModel):
-  name: str
-  carteira_a_vencer: float
-  a_vencer_ate_90_dias: float
-  a_vencer_de_91_ate_360_dias: float
-  numero_de_operacoes: int
-  requested_amount: float
-  dividas_mensais: float
-  renda_informada: float  
-  modalidade: str
-  porte: str
-  uf: str
-  segmento: str = "PF"
-  origem: str = "Sem destinação específica"
-  indexador: str = "Prefixado"
-  cnae_ocupacao: str = "Autônomo"
-  
+class PropostaCadastralRequest(BaseModel):
+    name: str
+    age: int
+    annualincome: float
+    monthlyincome: float
+    employmentstatus: str
+    educationlevel: str
+    experience: float
+    loanamount: float
+    loanduration: int
+    maritalstatus: str
+    numberofdependents: int
+    homeownershipstatus: str
+    monthlydebtpayments: float
+    creditcardutilizationrate: float
+    savingsaccountbalance: float
+    checkingaccountbalance: float
+    totalassets: float
+    totalliabilities: float
+    jobtenure: float
+    networth: float
+    loanpurpose: str
+    uf: str
+
 class CenarioCrescimentoRequest(BaseModel):
-    percentual_crescimento: float  # ex: 10.0 = +10%, -5.0 = -5%
-    
-@app.get("/api/portfolio-baseline")
-def get_portfolio_baseline():
-    try:
-        conn = psycopg2.connect(POSTGRES_URL)
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT 
-                COALESCE(SUM(carteira_ativa), 0),
-                COALESCE(SUM(carteira_inadimplencia), 0),
-                COUNT(*)
-            FROM carteira_bcb_historica;
-        """)
-        carteira_ativa_total, inadimplida_total, total_registros = cur.fetchone()
-        cur.close()
-        conn.close()
-
-        taxa = (inadimplida_total / carteira_ativa_total * 100) if carteira_ativa_total > 0 else 0.0
-
-        return {
-            "carteira_ativa_total": float(carteira_ativa_total),
-            "carteira_inadimplida_total": float(inadimplida_total),
-            "taxa_inadimplencia_base": round(taxa, 2),
-            "total_registros_agregados": int(total_registros),
-            "fonte": "BCB SCR.data (amostra agregada)",
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
-
-@app.post("/api/scenario/crescimento-carteira")
-def simular_crescimento_carteira(cenario: CenarioCrescimentoRequest):
-    try:
-        conn = psycopg2.connect(POSTGRES_URL)
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT COALESCE(SUM(carteira_ativa), 0), COALESCE(SUM(carteira_inadimplencia), 0)
-            FROM carteira_bcb_historica;
-        """)
-        carteira_base, inadimplida_base = cur.fetchone()
-        carteira_base = float(carteira_base)
-        inadimplida_base = float(inadimplida_base)
-
-        if carteira_base <= 0:
-            cur.close(); conn.close()
-            return {"error": "Base histórica vazia. Rode carga_historica_bcb.py antes de simular."}
-
-        taxa_base = inadimplida_base / carteira_base
-        fator = 1 + (cenario.percentual_crescimento / 100.0)
-        carteira_projetada = carteira_base * fator
-        inadimplencia_projetada = carteira_projetada * taxa_base
-
-        resultado = {
-            "tipo_cenario": "Crescimento/Redução de Carteira",
-            "premissas": {
-                "percentual_aplicado": cenario.percentual_crescimento,
-                "hipotese": "A taxa de inadimplência histórica observada na base agregada do BCB se mantém constante; o crescimento/redução é aplicado uniformemente sobre a carteira ativa total.",
-            },
-            "metodo": "Carteira projetada = Carteira ativa atual × (1 + percentual/100). Inadimplência projetada = Carteira projetada × taxa de inadimplência histórica.",
-            "base": {
-                "carteira_ativa": round(carteira_base, 2),
-                "carteira_inadimplencia": round(inadimplida_base, 2),
-                "taxa_inadimplencia": round(taxa_base * 100, 2),
-            },
-            "projetado": {
-                "carteira_ativa": round(carteira_projetada, 2),
-                "carteira_inadimplencia": round(inadimplencia_projetada, 2),
-                "taxa_inadimplencia": round(taxa_base * 100, 2),
-            },
-            "variacao_vs_base": {
-                "carteira_ativa_absoluta": round(carteira_projetada - carteira_base, 2),
-                "carteira_ativa_percentual": cenario.percentual_crescimento,
-                "inadimplencia_absoluta": round(inadimplencia_projetada - inadimplida_base, 2),
-            },
-            "limitacoes": [
-                "Cenário determinístico e linear: assume que o crescimento afeta toda a carteira de forma uniforme, sem mudança de mix de modalidade, UF ou porte.",
-                "A taxa de inadimplência é mantida constante por hipótese; não há modelagem de elasticidade entre crescimento e risco.",
-                "O modelo preditivo (CatBoost) não é usado neste cenário: ele foi treinado para estimar risco a partir de operações individuais agregadas, não para projeção de elasticidade de portfólio.",
-            ],
-        }
-
-        cur.execute(
-            "INSERT INTO cenarios_simulados (tipo_cenario, premissas, resultado) VALUES (%s, %s, %s)",
-            ("crescimento_carteira", json.dumps(resultado["premissas"]), json.dumps(resultado)),
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        return resultado
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    percentual_crescimento: float
 
 @app.get("/health")
 def health_check():
-    postgres_ok = False
-    mongo_ok = False
-    try:
-        conn = psycopg2.connect(POSTGRES_URL)
-        conn.close()
-        postgres_ok = True
-    except Exception:
-        pass
-    try:
-        mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
-        mongo_client.admin.command('ping')
-        mongo_ok = True
-    except Exception:
-        pass
-    return {
-        "status": "online",
-        "model_loaded": pipeline is not None,
-        "postgres_connected": postgres_ok,
-        "mongo_connected": mongo_ok,
-    }
+    return {"status": "online", "credit_model_loaded": pipeline is not None}
 
 @app.post("/predict")
-def predict_credit(proposta: PropostaCreditoRequest):
+def predict_credit(proposta: PropostaCadastralRequest):
     try:
-        # Se a carteira a vencer vier zerada (cliente sem empréstimos ativos), 
-        # atribuímos um patamar saudável padrão para o modelo não dar PD de 88% por falta de histórico.
-        carteira_base = (
-            proposta.carteira_a_vencer
-            if proposta.carteira_a_vencer > 0
-            else 5000.0
-        )
-        curto_prazo_base = carteira_base * 0.25
+        input_data = pd.DataFrame([proposta.dict()])
+        input_data.columns = input_data.columns.str.strip().str.lower()
+        df_processed = feature_engineering_avancada(input_data)
 
-        input_data = pd.DataFrame([{
-            "cliente": "PF",
-            "carteira_a_vencer": carteira_base,
-            "a_vencer_ate_90_dias": curto_prazo_base,
-            "a_vencer_de_91_ate_360_dias": carteira_base - curto_prazo_base,
-            "a_vencer_de_361_ate_1080_dias": 0.0,
-            "a_vencer_de_1081_ate_1800_dias": 0.0,
-            "a_vencer_de_1801_ate_5400_dias": 0.0,
-            "a_vencer_acima_de_5400_dias": 0.0,
-            "numero_de_operacoes": (
-                proposta.numero_de_operacoes
-                if proposta.numero_de_operacoes > 0
-                else 1
-            ),
-            "modalidade": proposta.modalidade,
-            "porte": proposta.porte,
-            "segmento": "PF",
-            "origem": "Sem destinação específica",
-            "indexador": "Prefixado",
-            "cnae_ocupacao": "Autônomo",
-            "uf": proposta.uf,
-        }])
-
-        df_processed = feature_engineering_avancada(
-            input_data, income_bins=income_bins
-        )
-
-        if proposta.renda_informada > 0:
-            df_processed["annual_inc"] = proposta.renda_informada * 12.0
-            df_processed["income_quantile"] = pd.cut(
-                df_processed["annual_inc"], bins=income_bins,
-                labels=False, include_lowest=True
-            )
-            df_processed["income_quantile"] = (
-                df_processed["income_quantile"].fillna(len(income_bins) - 2).astype(float)
-            )
-        
         if hasattr(pipeline, "feature_names_in_"):
             for col in pipeline.feature_names_in_:
                 if col not in df_processed.columns:
@@ -221,60 +71,30 @@ def predict_credit(proposta: PropostaCreditoRequest):
             df_processed = df_processed[pipeline.feature_names_in_]
 
         pd_score = float(pipeline.predict_proba(df_processed)[:, 1][0])
-        renda_estimada = float(df_processed["annual_inc"].iloc[0])
-
         decisao = avaliar_proposta_credito(
             pd_score=pd_score,
-            renda_anual=renda_estimada,
-            dividas_mensais=proposta.dividas_mensais,
-            valor_solicitado=proposta.requested_amount
+            renda_mensal=proposta.monthlyincome,
+            valor_solicitado=proposta.loanamount,
+            threshold=0.5329
         )
 
         try:
-            mongo_client = MongoClient(MONGO_URI)
+            mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=1000)
             db = mongo_client["finsight_behavioral"]
             db["customer_events"].insert_one({
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "customer_name": proposta.name,
                 "pd_score": pd_score,
                 "decision": decisao["status"],
-                "requested_amount": proposta.requested_amount
+                "requested_amount": proposta.loanamount
             })
         except Exception:
             pass
-        
-        try:
-            conn_pg = psycopg2.connect(POSTGRES_URL)
-            cur_pg = conn_pg.cursor()
-            cur_pg.execute("""
-                INSERT INTO propostas_credito (
-                    customer_name, uf, porte, modalidade, carteira_a_vencer,
-                    a_vencer_ate_90_dias, a_vencer_de_91_ate_360_dias, numero_de_operacoes,
-                    requested_amount, dividas_mensais, estimated_annual_income,
-                    pd_score, risk_rating, status, approved_limit, suggested_rate_annual, decision_reason
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (
-                proposta.name, proposta.uf, proposta.porte, proposta.modalidade,
-                carteira_base, curto_prazo_base, carteira_base - curto_prazo_base,
-                proposta.numero_de_operacoes, proposta.requested_amount, proposta.dividas_mensais,
-                renda_estimada, pd_score, decisao["risk_rating"], decisao["status"],
-                decisao["approved_limit"], decisao["suggested_rate_annual"], decisao["decision_reason"]
-            ))
-            conn_pg.commit()
-            cur_pg.close()
-            conn_pg.close()
-        except Exception as e:
-            print(f"Aviso: falha ao persistir proposta no PostgreSQL: {e}")
 
-        return {
-            "customer_name": proposta.name,
-            "estimated_annual_income": round(renda_estimada, 2),
-            "evaluation": decisao
-        }
-
+        return {"customer_name": proposta.name, "estimated_annual_income": proposta.annualincome, "evaluation": decisao}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 @app.get('/api/dashboard-metrics')
 def get_dashboard_metrics():
     try:
@@ -398,51 +218,89 @@ def get_dashboard_metrics():
     
 @app.get("/api/customer-360/{customer_name}")
 def get_customer_360(customer_name: str):
-  try:
-    # 1. Buscar histórico de propostas no PostgreSQL
-    conn = psycopg2.connect(POSTGRES_URL)
-    cur = conn.cursor()
-    cur.execute(
-        """
+    try:
+        conn = psycopg2.connect(POSTGRES_URL)
+        cur = conn.cursor()
+        cur.execute("""
             SELECT requested_amount, approved_limit, pd_score, risk_rating, status, decision_reason, suggested_rate_annual
-            FROM propostas_credito 
-            WHERE LOWER(customer_name) LIKE LOWER(%s);
-        """,
-        (f"%{customer_name}%",),
-    )
-    rows = cur.fetchall()
-    propostas = []
-    for r in rows:
-      propostas.append({
-          "requested_amount": float(r[0]),
-          "approved_limit": float(r[1]),
-          "pd_score": float(r[2]),
-          "risk_rating": r[3],
-          "status": r[4],
-          "decision_reason": r[5],
-          "suggested_rate_annual": float(r[6]),
-      })
-    cur.close()
-    conn.close()
+            FROM propostas_credito WHERE LOWER(customer_name) LIKE LOWER(%s);
+        """, (f"%{customer_name}%",))
+        rows = cur.fetchall()
+        propostas = [{
+            "requested_amount": float(r[0]), "approved_limit": float(r[1]), "pd_score": float(r[2]),
+            "risk_rating": r[3], "status": r[4], "decision_reason": r[5], "suggested_rate_annual": float(r[6])
+        } for r in rows]
+        cur.close()
+        conn.close()
 
-    # 2. Buscar trilha de auditoria comportamental no MongoDB / Cosmos DB
-    mongo_client = MongoClient(MONGO_URI)
-    db = mongo_client["finsight_behavioral"]
-    events_cursor = db["customer_events"].find(
-        {"customer_name": {"$regex": customer_name, "$options": "i"}}, {"_id": 0}
-    )
-    eventos = list(events_cursor)
-    mongo_client.close()
+        mongo_client = MongoClient(MONGO_URI)
+        db = mongo_client["finsight_behavioral"]
+        eventos = list(db["customer_events"].find({"customer_name": {"$regex": customer_name, "$options": "i"}}, {"_id": 0}))
+        mongo_client.close()
 
-    return {
-        "customer_name": customer_name,
-        "total_propostas": len(propostas),
-        "propostas": propostas,
-        "eventos_comportamentais": eventos,
-    }
-  except Exception as e:
-    raise HTTPException(status_code=500, detail=str(e))
+        return {"customer_name": customer_name, "total_propostas": len(propostas), "propostas": propostas, "eventos_comportamentais": eventos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
+@app.get('/api/pix-fraud-dashboard-metrics')
+def get_pix_fraud_dashboard_metrics():
+    try:
+        conn = psycopg2.connect(POSTGRES_URL)
+        cur = conn.cursor()
+        
+        cur.execute("""
+            SELECT 
+                COALESCE(SUM(valorpixcontestadosaceitos), 0), 
+                COALESCE(SUM(qtdepixcontestados), 0),
+                COALESCE(AVG(percentualdedevolucao), 0),
+                COUNT(*) 
+            FROM pix_fraudes_historica;
+        """)
+        valor_total, qtd_total, taxa_recuperacao_media, total_registros = cur.fetchone()
+
+        cur.execute("""
+            SELECT COALESCE(SUM(valor), 0), COALESCE(SUM(quantidade), 0)
+            FROM pix_transacoes_historica;
+        """)
+        valor_transacoes_geral, qtd_transacoes_geral = cur.fetchone()
+        
+        cur.execute("""
+            SELECT f.anomes, 
+                   COALESCE(SUM(f.valorpixcontestadosaceitos), 0), 
+                   COALESCE(SUM(f.qtdepixcontestados), 0),
+                   COALESCE(SUM(t.valor), 0),
+                   COALESCE(SUM(t.quantidade), 0)
+            FROM pix_fraudes_historica f
+            LEFT JOIN pix_transacoes_historica t ON f.anomes = t.anomes
+            GROUP BY f.anomes
+            ORDER BY f.anomes ASC;
+        """)
+        evolucao_temporal = [
+            {
+                "data": str(r[0]), 
+                "valor_envolvido": float(r[1]), 
+                "quantidade_fraudes": int(r[2]),
+                "valor_transacoes": float(r[3]),
+                "quantidade_transacoes": int(r[4])
+            } 
+            for r in cur.fetchall()
+        ]
+
+        cur.close()
+        conn.close()
+        
+        return {
+            "valor_total_envolvido": float(valor_total),
+            "quantidade_fraudes_total": int(qtd_total),
+            "taxa_recuperacao_media": round(float(taxa_recuperacao_media), 2),
+            "valor_transacoes_geral": float(valor_transacoes_geral),
+            "quantidade_transacoes_geral": int(qtd_transacoes_geral),
+            "total_registros_amostra": int(total_registros),
+            "evolucao_temporal": evolucao_temporal
+        }
+    except Exception as e:
+        return {"error": str(e)}
+    
 @app.get("/api/macro/evolucao")
 def get_evolucao_macro(data_inicio: str = "01/01/2020"):
     try:

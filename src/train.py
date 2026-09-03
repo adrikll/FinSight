@@ -24,23 +24,23 @@ mlflow.set_experiment("FinSight_Loan_Approval_Risk")
 MODEL_PKL_PATH = "artifacts/champion_model.pkl"
 
 def train_loan_model():
-    print("--- INICIANDO TREINAMENTO CADASTRAL PURO (NOVO DATASET FINANCEIRO) ---")
-    
     raw_df = carregar_dataset_loan()
-    
-    # Tratamento do target original antes da feature engineering
-    raw_df.columns = raw_df.columns.str.strip().str.lower()
-    target_col = "loanapproved" if "loanapproved" in raw_df.columns else "loan_status"
-    
-    if target_col not in raw_df.columns:
-        raise KeyError(f"A coluna alvo não foi encontrada no dataset bruto.")
+    df = feature_engineering_avancada(raw_df)
+
+    # Varredura inteligente e flexível para encontrar a coluna alvo
+    target_candidates = ["loanapproved", "loan_approved", "loan_status"]
+    target_col = None
+    for col in target_candidates:
+        if col in raw_df.columns:
+            target_col = col
+            break
+            
+    if target_col is None:
+        raise KeyError(f"A coluna alvo não foi encontrada nas colunas disponíveis: {list(raw_df.columns)}")
 
     y = pd.to_numeric(raw_df[target_col], errors="coerce").fillna(0).astype(int)
     
-    # Aplica a engenharia limpando as colunas que o usuário não preenche
-    df_features = feature_engineering_avancada(raw_df)
-    
-    X = df_features.drop(columns=[target_col], errors="ignore")
+    X = df.drop(columns=[target_col, "loanapproved", "loan_approved", "loan_status"], errors="ignore")
 
     cat_cols = X.select_dtypes(include=["object", "category"]).columns.tolist()
     num_cols = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
@@ -70,54 +70,38 @@ def train_loan_model():
         ]
     )
 
-    models = {
-        "XGBoost": XGBClassifier(
-            n_estimators=700, learning_rate=0.015, max_depth=5,
-            scale_pos_weight=scale_weight * 1.2,
-            subsample=0.8, colsample_bytree=0.8,
-            random_state=42, eval_metric="logloss", n_jobs=-1
-        ),
-        "GradientBoosting": GradientBoostingClassifier(
-            n_estimators=500, learning_rate=0.02, max_depth=5,
-            subsample=0.8,
-            random_state=42
-        )
-    }
+    # XGBoost hiper-otimizado com regularização forte para evitar falsos positivos
+    model = XGBClassifier(
+        n_estimators=800, 
+        learning_rate=0.01, 
+        max_depth=4,  # Menor profundidade reduz overfitting em casos limítrofes
+        scale_pos_weight=scale_weight * 1.1,
+        subsample=0.85, 
+        colsample_bytree=0.85,
+        gamma=0.2,
+        random_state=42, 
+        eval_metric="logloss", 
+        n_jobs=-1
+    )
 
-    best_auc = -1
-    best_model_name = None
-    best_pipeline = None
-
-    print("\nAvaliando modelos com o novo dataset...")
-    for name, clf in models.items():
-        pipeline = Pipeline(steps=[("preprocessor", preprocessor), ("model", clf)])
-        pipeline.fit(X_train, y_train)
-        
-        proba = pipeline.predict_proba(X_test)[:, 1]
-        auc = roc_auc_score(y_test, proba)
-        print(f"-> {name} | ROC-AUC: {auc:.4f}")
-        
-        if auc > best_auc:
-            best_auc = auc
-            best_model_name = name
-            best_pipeline = pipeline
-
-    print(f"\n🏆 Modelo Campeão: {best_model_name} (ROC-AUC: {best_auc:.4f})")
-
-    # Otimização por Função de Custo Financeiro Real
-    test_proba = best_pipeline.predict_proba(X_test)[:, 1]
+    pipeline = Pipeline(steps=[("preprocessor", preprocessor), ("model", model)])
+    pipeline.fit(X_train, y_train)
     
+    test_proba = pipeline.predict_proba(X_test)[:, 1]
+    auc = roc_auc_score(y_test, test_proba)
+    print(f"🏆 XGBoost Refinado | ROC-AUC: {auc:.4f}")
+
+    # Otimização refinada de Threshold com penalidade balanceada
     best_threshold = 0.5
     min_cost = float('inf')
     
-    cost_fn = 5.0  # Custo severo de inadimplência (aprovar quem não deveria)
-    cost_fp = 1.0  # Custo de oportunidade (recusar bom cliente)
+    cost_fn = 4.5  # Ajustado para tolerar uma margem menor de falsos positivos
+    cost_fp = 1.2  
     
-    thresholds_to_test = np.linspace(0.05, 0.95, 300)
+    thresholds_to_test = np.linspace(0.1, 0.9, 500)
     for th in thresholds_to_test:
         preds = (test_proba >= th).astype(int)
-        cm_temp = confusion_matrix(y_test, preds)
-        tn, fp, fn, tp = cm_temp.ravel()
+        tn, fp, fn, tp = confusion_matrix(y_test, preds).ravel()
         
         total_cost = (fn * cost_fn) + (fp * cost_fp)
         
@@ -127,7 +111,7 @@ def train_loan_model():
 
     y_pred = (test_proba >= best_threshold).astype(int)
 
-    print(f"\n--- MÉTRICAS DO MODELO COM THRESHOLD DE CUSTO (Threshold: {best_threshold:.4f}) ---")
+    print(f"\n--- MÉTRICAS COM THRESHOLD CALIBRADO (Threshold: {best_threshold:.4f}) ---")
     print(classification_report(y_test, y_pred, target_names=["Denied (0)", "Approved (1)"]))
     
     cm = confusion_matrix(y_test, y_pred)
@@ -135,20 +119,21 @@ def train_loan_model():
     print(cm)
 
     os.makedirs("artifacts", exist_ok=True)
-    joblib.dump(best_pipeline, MODEL_PKL_PATH)
+    joblib.dump(pipeline, MODEL_PKL_PATH)
 
-    with mlflow.start_run(run_name=f"Financial_Risk_{best_model_name}_CostOptimized"):
-        mlflow.log_param("best_model", best_model_name)
-        mlflow.log_metric("roc_auc", best_auc)
+    with mlflow.start_run(run_name="Financial_Risk_XGBoost_Production"):
+        mlflow.log_param("best_model", "XGBoost")
+        mlflow.log_metric("roc_auc", auc)
         mlflow.log_metric("best_threshold", best_threshold)
-        signature = infer_signature(X_train, best_pipeline.predict_proba(X_train.head(5)))
+        
+        # Força o cloudpickle para evitar falhas de serialização do skops
         mlflow.sklearn.log_model(
-            best_pipeline, 
+            pipeline, 
             artifact_path="model", 
-            serialization_format="cloudpickle",
-            signature=signature
+            serialization_format="cloudpickle"
         )
-        mlflow.log_artifact(MODEL_PKL_PATH, artifact_path="model")
+        
+        mlflow.log_artifact(MODEL_PKL_PATH)
         print(f"✅ Modelo salvo em: {MODEL_PKL_PATH}")
 
 if __name__ == "__main__":
