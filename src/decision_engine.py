@@ -8,15 +8,14 @@ def obter_taxa_selic_atual() -> float:
             return float(resp.json()[0]["valor"]) / 100.0
     except Exception:
         pass
-    return 0.1175  # Fallback: 11.75% a.a.
+    return 0.1175 
 
-def avaliar_proposta_credito(pd_score: float, renda_mensal: float, valor_solicitado: float, threshold: float = 0.5329):
+def avaliar_proposta_credito(pd_score: float, renda_mensal: float, valor_solicitado: float, threshold: float = 0.3814):
     """
-    Motor de Decisão e Explicabilidade baseado na probabilidade do modelo XGBoost.
+    Motor de Decisão e Explicabilidade baseado na probabilidade do Ensemble campeão.
     """
     is_approved = pd_score >= threshold
     
-    # Classificação de Risco
     if pd_score >= 0.75:
         risk_rating = "Baixo Risco"
     elif pd_score >= threshold:
@@ -24,7 +23,6 @@ def avaliar_proposta_credito(pd_score: float, renda_mensal: float, valor_solicit
     else:
         risk_rating = "Alto Risco"
 
-    # Geração de Fatores Explicativos baseados no perfil e alavancagem
     comprometimento = valor_solicitado / (renda_mensal * 12 + 1e-8)
     
     reasons = []
@@ -36,7 +34,7 @@ def avaliar_proposta_credito(pd_score: float, renda_mensal: float, valor_solicit
             reasons.append("Excelente proporção entre o valor solicitado e sua capacidade de renda.")
         status = "APROVADO"
         approved_limit = valor_solicitado
-        suggested_rate = 18.5 # Taxa anual competitiva
+        suggested_rate = 18.5
     else:
         status = "NEGADO"
         approved_limit = 0.0
@@ -44,7 +42,7 @@ def avaliar_proposta_credito(pd_score: float, renda_mensal: float, valor_solicit
         if comprometimento > 0.5:
             reasons.append("O valor pretendido excede o limite recomendado de alavancagem para a renda declarada.")
         else:
-            reasons.append("O escore de risco cadastral calculado ficou abaixo do limiar mínimo de segurança (53.29%).")
+            reasons.append("O escore de risco cadastral calculado ficou abaixo do limiar mínimo de segurança (38.14%).")
         reasons.append("Sugestão: Tente reduzir o valor do empréstimo ou declarar ativos adicionais para uma nova simulação.")
 
     return {

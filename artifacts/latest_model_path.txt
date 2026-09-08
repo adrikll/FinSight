@@ -1,1 +1,0 @@
-artifacts/champion_model.pkl

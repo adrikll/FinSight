@@ -5,7 +5,15 @@ export default function KpiCard({ icon: Icon, title, value, delta, deltaSufixo, 
   const positivo = delta !== undefined && delta !== null && (deltaInvertido ? delta <= 0 : delta >= 0);
   const safeId = title ? title.replace(/[^a-zA-Z0-9]/g, '') : 'kpi';
   
-  const valores = trend ? trend.map(t => t.valor).filter(v => typeof v === 'number') : [];
+  // Compatibilidade robusta: aceita tanto array de objetos ({valor: ...}) quanto array plano de números ([...])
+  const trendFormatado = trend ? trend.map(t => {
+    if (typeof t === 'object' && t !== null) {
+      return { valor: Number(t.valor ?? t.val ?? 0), data: t.data || t.index };
+    }
+    return { valor: Number(t) || 0 };
+  }) : [];
+
+  const valores = trendFormatado.map(t => t.valor).filter(v => typeof v === 'number' && !isNaN(v));
   const minVal = valores.length > 0 ? Math.min(...valores) : 0;
   const maxVal = valores.length > 0 ? Math.max(...valores) : 1;
   const margem = (maxVal - minVal) * 0.2 || 0.5;
@@ -18,7 +26,8 @@ export default function KpiCard({ icon: Icon, title, value, delta, deltaSufixo, 
         <div className="w-8 h-8 rounded-full bg-purple-500/15 flex items-center justify-center shrink-0">
           <Icon className="w-4 h-4 text-purple-400" />
         </div>
-        <span className="text-xs text-slate-400">{title}</span>
+        {/* TÍTULO AUMENTADO: de text-xs text-slate-400 para text-sm font-semibold text-slate-200 */}
+        <span className="text-sm font-semibold text-slate-200">{title}</span>
       </div>
       <span className="text-2xl font-semibold text-white tracking-tight text-center block">{value}</span>
       {delta !== undefined && delta !== null && (
@@ -26,10 +35,10 @@ export default function KpiCard({ icon: Icon, title, value, delta, deltaSufixo, 
           {delta >= 0 ? '↑' : '↓'} {Math.abs(delta).toFixed(2)}{deltaSufixo || '%'} vs. mês anterior
         </span>
       )}
-      {trend && trend.length > 1 && (
+      {trendFormatado.length > 1 && (
         <div className="h-12 mt-2 -mx-2">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={trend} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
+            <AreaChart data={trendFormatado} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
               <defs>
                 <linearGradient id={`gradient-${safeId}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#a855f7" stopOpacity={0.6}/>

@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 class CreditSimulator:
-    def __init__(self, model_path="artifacts/champion_model.pkl", threshold=0.5329):
+    def __init__(self, model_path="artifacts/champion_model.pkl", threshold=0.3814):
         self.pipeline = joblib.load(model_path)
         self.threshold = threshold
 
@@ -11,25 +11,31 @@ class CreditSimulator:
         df = pd.DataFrame([user_data])
         df.columns = df.columns.str.strip().str.lower()
         
-        # Engenharia de features em tempo de inferência
-        if "annualincome" in df.columns and "loanamount" in df.columns:
-            df["loan_to_income"] = df["loanamount"] / (df["annualincome"] + 1.0)
-            df["log_income"] = np.log1p(df["annualincome"])
-            df["log_loan"] = np.log1p(df["loanamount"])
-
-        if "experience" in df.columns and "age" in df.columns:
-            df["career_stability_ratio"] = df["experience"] / (df["age"] + 1.0)
+        # Engenharia de features avançada idêntica ao pipeline de treino
+        if 'monthlydebtpayments' in df.columns and 'monthlyincome' in df.columns:
+            df['comprometimento_renda'] = df['monthlydebtpayments'] / (df['monthlyincome'] + 1e-5)
+        if 'totalassets' in df.columns and 'totalliabilities' in df.columns:
+            df['patrimonio_liquido_calc'] = df['totalassets'] - df.get('totalliabilities', 0)
+        if 'loanamount' in df.columns and 'annualincome' in df.columns:
+            df['emprestimo_vs_renda_anual'] = df['loanamount'] / (df['annualincome'] + 1e-5)
+        if 'savingsaccountbalance' in df.columns and 'checkingaccountbalance' in df.columns and 'monthlydebtpayments' in df.columns:
+            soma_saldos = df['savingsaccountbalance'] + df['checkingaccountbalance']
+            df['cobertura_liquidez'] = soma_saldos / (df['monthlydebtpayments'] + 1e-5)
 
         return df
 
     def simulate(self, user_data: dict) -> dict:
         df_processed = self.process_input(user_data)
         
-        # Probabilidade de aprovação (classe 1)
+        if hasattr(self.pipeline, "feature_names_in_") and self.pipeline.feature_names_in_ is not None:
+            for col in self.pipeline.feature_names_in_:
+                if col not in df_processed.columns:
+                    df_processed[col] = 0.0
+            df_processed = df_processed[self.pipeline.feature_names_in_]
+
         approval_prob = float(self.pipeline.predict_proba(df_processed)[:, 1][0])
         is_approved = approval_prob >= self.threshold
 
-        # Classificação de Risco baseada na probabilidade
         if approval_prob >= 0.75:
             risk_level = "Baixo Risco"
         elif approval_prob >= self.threshold:
@@ -37,7 +43,6 @@ class CreditSimulator:
         else:
             risk_level = "Alto Risco"
 
-        # Análise explicativa dos fatores com base nas features de maior peso
         factors = []
         loan_to_inc = user_data.get("loanamount", 0) / (user_data.get("annualincome", 1) + 1)
         if loan_to_inc > 0.4:
