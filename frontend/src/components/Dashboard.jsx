@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import KpiCard from './KpiCard';
 import MapaBrasil from './MapaBrasil';
+import API_URL from '../api';
 
 const SLATE_GRID = '#1e293b';
 const DONUT_COLORS = ['#4b1383', '#38bdf8']; 
@@ -26,8 +27,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     setLoading(true);
-    const urlMetrics = 'http://127.0.0.1:8000/api/dashboard-metrics';
-    const urlMacro = 'http://127.0.0.1:8000/api/macro/indicadores';
+    const urlMetrics = `${API_URL}/api/dashboard-metrics`; 
+    const urlMacro = `${API_URL}/api/macro/indicadores`;
 
     Promise.all([
       fetch(urlMetrics).then(r => r.json()),

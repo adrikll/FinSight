@@ -3,6 +3,7 @@ import { Award, Cpu, ShieldCheck, CheckCircle2, AlertTriangle, Layers, RefreshCw
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
+import API_URL from '../api';
 
 const SLATE_GRID = '#1e293b';
 
@@ -16,7 +17,7 @@ export default function RiskModelsDashboard() {
     setCarregando(true);
     setErroApi(null);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/mlflow-model-metrics');
+      const response = await fetch(`${API_URL}/api/mlflow-model-metrics`);
       const data = await response.json();
       if (!response.ok || data.detail) throw new Error(data.detail || "Erro ao carregar dados do MLflow.");
       setDadosMlflow(data);

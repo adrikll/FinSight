@@ -5,6 +5,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import KpiCard from './KpiCard';
+import API_URL from '../api';
 
 const SLATE_GRID = '#1e293b';
 const CHART_COLORS = ['#51138c', '#38bdf8', '#fb923c', '#9f4cf1', '#37a487', '#f97316'];
@@ -33,7 +34,7 @@ export default function FraudDashboard() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('http://127.0.0.1:8000/api/pix-fraud-dashboard-metrics')
+    fetch(`${API_URL}/api/pix-fraud-dashboard-metrics`)
       .then(r => r.json())
       .then(data => {
         if (data && !data.error) {
