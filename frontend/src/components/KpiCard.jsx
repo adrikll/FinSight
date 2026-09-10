@@ -5,7 +5,6 @@ export default function KpiCard({ icon: Icon, title, value, delta, deltaSufixo, 
   const positivo = delta !== undefined && delta !== null && (deltaInvertido ? delta <= 0 : delta >= 0);
   const safeId = title ? title.replace(/[^a-zA-Z0-9]/g, '') : 'kpi';
   
-  // Compatibilidade robusta: aceita tanto array de objetos ({valor: ...}) quanto array plano de números ([...])
   const trendFormatado = trend ? trend.map(t => {
     if (typeof t === 'object' && t !== null) {
       return { valor: Number(t.valor ?? t.val ?? 0), data: t.data || t.index };
@@ -21,17 +20,16 @@ export default function KpiCard({ icon: Icon, title, value, delta, deltaSufixo, 
   const domainMax = Number((maxVal + margem).toFixed(2));
 
   return (
-    <div className="bg-slate-900/80 p-5 rounded-lg border border-slate-800/80 flex flex-col gap-1 relative overflow-hidden">
+    <div className="bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col gap-1 relative overflow-hidden shadow-sm transition-colors">
       <div className="flex items-center gap-2 mb-2">
         <div className="w-8 h-8 rounded-full bg-purple-500/15 flex items-center justify-center shrink-0">
-          <Icon className="w-4 h-4 text-purple-400" />
+          <Icon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
         </div>
-        {/* TÍTULO AUMENTADO: de text-xs text-slate-400 para text-sm font-semibold text-slate-200 */}
-        <span className="text-sm font-semibold text-slate-200">{title}</span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</span>
       </div>
-      <span className="text-2xl font-semibold text-white tracking-tight text-center block">{value}</span>
+      <span className="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight text-center block">{value}</span>
       {delta !== undefined && delta !== null && (
-        <span className={`text-xs font-medium text-center block ${positivo ? 'text-emerald-400' : 'text-red-400'}`}>
+        <span className={`text-xs font-medium text-center block ${positivo ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
           {delta >= 0 ? '↑' : '↓'} {Math.abs(delta).toFixed(2)}{deltaSufixo || '%'} vs. mês anterior
         </span>
       )}

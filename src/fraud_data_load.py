@@ -1,13 +1,18 @@
 import os
 import pandas as pd
 import psycopg2
-from src.config import POSTGRES_URL
+from psycopg2.extras import execute_values
+from config import POSTGRES_URL
 
 PARQUET_TRANS = "data/processed/pix_transacoes_sample.parquet"
 PARQUET_FRAUD = "data/processed/pix_fraud_sample.parquet"
 
 def carregar_dados_pix():
-    conn = psycopg2.connect(POSTGRES_URL)
+    conn_args = {}
+    if "postgres.database.azure.com" in POSTGRES_URL:
+        conn_args["sslmode"] = "require"
+
+    conn = psycopg2.connect(POSTGRES_URL, **conn_args)
     cur = conn.cursor()
 
     print("Limpando dados antigos no PostgreSQL para evitar estouro de espaço...")
@@ -34,13 +39,15 @@ def carregar_dados_pix():
             )
             for _, r in df_trans.iterrows()
         ]
-        cur.executemany("""
+        
+        query_trans = """
             INSERT INTO pix_transacoes_historica (
                 anomes, pag_pfpj, rec_pfpj, pag_regiao, rec_regiao, 
                 pag_idade, rec_idade, formainiciacao, natureza, finalidade, valor, quantidade
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, rec_trans)
-        print(f"✅ {len(rec_trans)} registros de transações gerais Pix inseridos (amostra representativa).")
+            ) VALUES %s
+        """
+        execute_values(cur, query_trans, rec_trans)
+        print(f"{len(rec_trans)} registros de transações gerais Pix inseridos em lote.")
 
     if os.path.exists(PARQUET_FRAUD):
         df_fraud = pd.read_parquet(PARQUET_FRAUD)
@@ -74,7 +81,7 @@ def carregar_dados_pix():
             for _, r in df_fraud.iterrows()
         ]
         
-        cur.executemany("""
+        query_fraud = """
             INSERT INTO pix_fraudes_historica (
                 anomes, qtdepixcontestados, qtdecontestacoesaceitas, qtdecontestacoesrejeitadas,
                 qtdecontestacoesaceitasacada100mil, qtdeusuarioscommarcacoesdefraude, qtdechavespixcommarcacoesdefraude,
@@ -84,9 +91,10 @@ def carregar_dados_pix():
                 valornaodevolvidoscontaencerrada, quantidadedenaodevolvidosmotivosdiversos, valorpixnaodevolvidosmotivosdiversos,
                 percentualdedevolucao, qtdepixbloqueadoscautelarmenteeliberados, valorpixbloqueadoscautelarmenteeliberados,
                 qtdepixbloqueadoscautelarmenteedevolvidos, valorpixbloqueadoscautelarmenteedevolvidos
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """, rec_fraud)
-        print(f"✅ {len(rec_fraud)} registros de fraudes/MED Pix inseridos.")
+            ) VALUES %s
+        """
+        execute_values(cur, query_fraud, rec_fraud)
+        print(f"{len(rec_fraud)} registros de fraudes/MED Pix inseridos em lote.")
 
     conn.commit()
     cur.close()

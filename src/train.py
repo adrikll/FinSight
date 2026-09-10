@@ -27,7 +27,7 @@ EXPERIMENT_NAME = "FinSight_Loan_Approval_Risk"
 MODEL_PKL_PATH = "artifacts/champion_model.pkl"
 
 def feature_engineering_extra(df):
-    """Cria interações financeiras profundas para esmagar taxas de falso positivo/negativo."""
+    """Cria interações financeiras para mitigar taxas de falso positivo/negativo."""
     df = df.copy()
     
     if 'monthlydebtpayments' in df.columns and 'monthlyincome' in df.columns:
@@ -130,11 +130,9 @@ def train_loan_model():
 
     os.makedirs("artifacts", exist_ok=True)
 
-    # 1. Treinamento e salvamento de métricas individuais de cada modelo no MLflow
+    # Treinamento e salvamento de métricas individuais de cada modelo no MLflow
     for nome_modelo, estimador in modelos_candidatos.items():
-        print(f"\n==================================================")
-        print(f"🚀 TREINANDO E AVALIANDO: {nome_modelo}")
-        print(f"==================================================")
+        print(f"Treinando e Avaliando: {nome_modelo}")
         
         pipeline = Pipeline(steps=[("preprocessor", preprocessor), ("model", estimador)])
         pipeline.fit(X_train, y_train)
@@ -166,7 +164,7 @@ def train_loan_model():
         precision = precision_score(y_test, y_pred, zero_division=0)
         recall = recall_score(y_test, y_pred, zero_division=0)
 
-        print(f"📌 Resumo [{nome_modelo}] -> ROC-AUC: {auc:.4f} | Gini: {gini:.4f} | F1: {f1:.4f} | Acc: {acc:.4f} | G-Mean Segura: {max_score_seguro:.4f} | Melhor Threshold: {best_th:.4f}")
+        print(f"Resumo [{nome_modelo}] -> ROC-AUC: {auc:.4f} | Gini: {gini:.4f} | F1: {f1:.4f} | Acc: {acc:.4f} | G-Mean Segura: {max_score_seguro:.4f} | Melhor Threshold: {best_th:.4f}")
 
         with mlflow.start_run(run_name=f"Run_{nome_modelo.replace(' ', '_')}"):
             mlflow.log_param("model_name", nome_modelo)
@@ -185,13 +183,9 @@ def train_loan_model():
                 "precision": precision, "recall": recall, "g_mean": max_score_seguro, "best_threshold": best_th
             }
 
-    # ==========================================
-    # AVALIAÇÃO DE ENSEMBLE (CatBoost + XGBoost)
-    # ==========================================
+    # Avaliação do Ensemble (CatBoost + XGBoost)
     if "CatBoost" in pipelines_treinados and "XGBoost" in pipelines_treinados:
-        print(f"\n==================================================")
-        print(f"🌟 AVALIANDO ENSEMBLE PREDITIVO (CatBoost + XGBoost)")
-        print(f"==================================================")
+        print(f"Avaliação do Ensemble (CatBoost + XGBoost)")
         
         pipe_cat = pipelines_treinados["CatBoost"]
         pipe_xgb = pipelines_treinados["XGBoost"]
@@ -224,7 +218,7 @@ def train_loan_model():
         ens_precision = precision_score(y_test, y_pred_ens, zero_division=0)
         ens_recall = recall_score(y_test, y_pred_ens, zero_division=0)
 
-        print(f"📌 Resumo [Ensemble (CatBoost + XGBoost)] -> ROC-AUC: {ensemble_auc:.4f} | Gini: {ensemble_gini:.4f} | F1: {ens_f1:.4f} | Acc: {ens_acc:.4f} | G-Mean Segura: {max_score_seguro_ens:.4f}")
+        print(f"Resumo [Ensemble (CatBoost + XGBoost)] -> ROC-AUC: {ensemble_auc:.4f} | Gini: {ensemble_gini:.4f} | F1: {ens_f1:.4f} | Acc: {ens_acc:.4f} | G-Mean Segura: {max_score_seguro_ens:.4f}")
 
         if ensemble_auc > melhor_score_auc:
             melhor_score_auc = ensemble_auc
@@ -243,13 +237,10 @@ def train_loan_model():
                 "precision": ens_precision, "recall": ens_recall, "g_mean": max_score_seguro_ens, "best_threshold": best_th_ens
             }
 
-    print(f"\n==========================================")
-    print(f"🏆 MODELO VENCEDOR ESCOLHIDO: {melhor_nome_modelo} (AUC: {melhor_score_auc:.4f})")
-    print(f"==========================================")
+    print(f"Modelo vencedor: {melhor_nome_modelo} (AUC: {melhor_score_auc:.4f})")
 
     joblib.dump(melhor_pipeline, MODEL_PKL_PATH)
 
-    # REGISTRO OFICIAL DO ENSEMBLE/CAMPEÃO NO MLFLOW COMO RUN REGULAR
     with mlflow.start_run(run_name="Run_Ensemble_CatBoost_XGBoost"):
         mlflow.log_param("model_name", melhor_nome_modelo)
         for metrica, valor in melhor_metricas.items():
@@ -261,7 +252,7 @@ def train_loan_model():
             serialization_format="cloudpickle"
         )
         mlflow.log_artifact(MODEL_PKL_PATH)
-        print(f"✅ Modelo campeão salvo e registrado no MLflow em: {MODEL_PKL_PATH}")
+        print(f"Modelo campeão salvo e registrado no MLflow em: {MODEL_PKL_PATH}")
 
 if __name__ == "__main__":
     train_loan_model()

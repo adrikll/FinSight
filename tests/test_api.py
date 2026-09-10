@@ -22,7 +22,7 @@ def test_decision_engine_approved():
     assert decisao["approved_limit"] > 0
 
 def test_predict_endpoint():
-    # Payload ajustado ao formulário de simulação do usuário
+    # Payload
     payload = {
         "name": "Cliente Teste",
         "age": 32,

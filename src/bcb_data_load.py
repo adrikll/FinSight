@@ -1,7 +1,8 @@
 import os
 import pandas as pd
 import psycopg2
-from src.config import POSTGRES_URL
+from psycopg2.extras import execute_values
+from config import POSTGRES_URL
 
 PARQUET_PATH = "data/processed/bcb_credit_sample.parquet"
 
@@ -14,7 +15,11 @@ def carregar_carteira_historica():
     print("Colunas disponíveis no Parquet:", df.columns.tolist())
     df.columns = df.columns.str.replace("ï»¿", "", regex=False).str.strip().str.lower()
 
-    conn = psycopg2.connect(POSTGRES_URL)
+    conn_args = {}
+    if "postgres.database.azure.com" in POSTGRES_URL:
+        conn_args["sslmode"] = "require"
+    
+    conn = psycopg2.connect(POSTGRES_URL, **conn_args)
     cur = conn.cursor()
 
     records = []
@@ -43,24 +48,24 @@ def carregar_carteira_historica():
             float(row.get("ativo_problematico", 0.0)),
         ))
 
-    # LIMPEZA OBRIGATÓRIA: Apaga todo o histórico anterior no Azure antes de inserir a nova safra
     print("Limpando dados antigos no PostgreSQL do Azure...")
     cur.execute("TRUNCATE TABLE carteira_bcb_historica RESTART IDENTITY;")
 
-    print("Inserindo nova safra atualizada (últimos 12 meses)...")
-    cur.executemany("""
+    print(f"Inserindo {len(records)} registros em lote otimizado no Azure...")
+    query = """
         INSERT INTO carteira_bcb_historica (
             data_base, uf, segmento, cliente, cnae_ocupacao, porte, modalidade,
             submodalidade, origem, indexador, numero_de_operacoes, carteira_a_vencer,
             vencido_de_15_ate_90_dias, vencido_acima_de_90_dias, carteira_vencida,
             carteira_ativa, carteira_inadimplencia, ativo_problematico
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-    """, records)
+        ) VALUES %s
+    """
+    execute_values(cur, query, records)
     
     conn.commit()
     cur.close()
     conn.close()
-    print(f"✅ Banco no Azure atualizado com sucesso! Total de {len(records)} registros mantidos.")
+    print(f"Banco no Azure atualizado com sucesso! Total de {len(records)} registros inseridos.")
 
 if __name__ == "__main__":
     carregar_carteira_historica()

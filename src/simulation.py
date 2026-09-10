@@ -11,7 +11,7 @@ class CreditSimulator:
         df = pd.DataFrame([user_data])
         df.columns = df.columns.str.strip().str.lower()
         
-        # Engenharia de features avançada idêntica ao pipeline de treino
+        # Engenharia de features
         if 'monthlydebtpayments' in df.columns and 'monthlyincome' in df.columns:
             df['comprometimento_renda'] = df['monthlydebtpayments'] / (df['monthlyincome'] + 1e-5)
         if 'totalassets' in df.columns and 'totalliabilities' in df.columns:

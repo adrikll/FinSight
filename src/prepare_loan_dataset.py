@@ -5,8 +5,7 @@ import kagglehub
 
 def carregar_dataset_loan():
     """
-    Baixa e carrega o dataset 'Financial Risk for Loan Approval' via kagglehub,
-    substituindo qualquer versão anterior na pasta de processados.
+    Baixa e carrega o dataset 'Financial Risk for Loan Approval' via kagglehub.
     """
     os.makedirs("data/raw", exist_ok=True)
     os.makedirs("data/processed", exist_ok=True)
@@ -22,7 +21,7 @@ def carregar_dataset_loan():
         raise FileNotFoundError("Nenhum arquivo CSV foi encontrado no diretório baixado pelo kagglehub.")
 
     raw_file_path = csv_files[0]
-    print(f"✅ Lendo dados brutos de: {raw_file_path}")
+    print(f"Lendo dados brutos de: {raw_file_path}")
     
     df = pd.read_csv(raw_file_path)
 
@@ -36,7 +35,7 @@ def carregar_dataset_loan():
         raise KeyError(f"A coluna alvo '{target_col}' não foi encontrada no dataset.")
 
     df.to_csv(processed_path, index=False)
-    print(f"✅ Dataset carregado, processado e substituído com sucesso em: {processed_path}")
+    print(f"Dataset carregado, processado e substituído com sucesso em: {processed_path}")
     return df
 
 if __name__ == "__main__":

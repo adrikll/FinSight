@@ -2,7 +2,6 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-#dependências do sistema
 RUN apt-get update && apt-get install -y \
     build-essential \
     libgomp1 \
@@ -12,6 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Copia todo o código, incluindo a pasta artifacts/ com o champion_model.pkl
 COPY . .
 
 EXPOSE 8000

@@ -1,4 +1,4 @@
-# Ambientes Virtuais & Python Cache
+# Ambientes Virtuais e Python Cache
 .venv/
 __pycache__/
 *.py[cod]
@@ -9,21 +9,23 @@ __pycache__/
 .env
 *.env
 
-# Execuções de ML & Treinamento Local
+# Execuções de ML, MLflow e Bancos Locais
 catboost_info/
 mlruns/
 mlflow.db
+mlruns.db
 
-# Dados Brutos / Processados / Artefatos Binários
+# Dados Brutos / Processados 
 data/raw/
-data/processed/*.parquet
-data/processed/*.csv
+data/processed/
+
+# artifacts/*.pkl
 
 # Dependências do Frontend
 frontend/node_modules/
 frontend/dist/
 
-# Configurações de Editores & Sistema
+# Configurações de Editores e Sistema
 .vscode/
 .idea/
 .DS_Store

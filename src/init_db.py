@@ -28,7 +28,7 @@ def init_postgres():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """,
-        # Recria a carteira histórica do BCB para evitar crescimento exponencial
+        # Recria a carteira histórica do BCB
         "DROP TABLE IF EXISTS carteira_bcb_historica CASCADE;",
         """
         CREATE TABLE carteira_bcb_historica (
@@ -65,7 +65,7 @@ def init_postgres():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """,
-        # Recria as transações do Pix (amostra controlada de 30k)
+        # Recria as transações do Pix (amostra de 30k)
         "DROP TABLE IF EXISTS pix_transacoes_historica CASCADE;",
         """
         CREATE TABLE pix_transacoes_historica (
@@ -129,9 +129,9 @@ def init_postgres():
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ Tabelas essenciais do Dashboard recriadas e limpas com sucesso no PostgreSQL!")
+        print("Tabelas essenciais do Dashboard recriadas e limpas com sucesso no PostgreSQL!")
     except Exception as e:
-        print(f"❌ Erro ao inicializar PostgreSQL: {e}")
+        print(f"Erro ao inicializar PostgreSQL: {e}")
 
 def init_mongo():
     try:
@@ -139,9 +139,9 @@ def init_mongo():
         db = client["finsight_behavioral"]
         if "customer_events" not in db.list_collection_names():
             db.create_collection("customer_events")
-        print("✅ Coleção 'customer_events' do MongoDB inicializada!")
+        print("Coleção 'customer_events' do MongoDB inicializada!")
     except Exception as e:
-        print(f"❌ Erro ao inicializar MongoDB: {e}")
+        print(f"Erro ao inicializar MongoDB: {e}")
 
 if __name__ == "__main__":
     init_postgres()

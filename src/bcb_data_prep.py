@@ -11,7 +11,7 @@ PARQUET_FILE = os.path.join(PROCESSED_DIR, "bcb_credit_sample.parquet")
 
 def _baixar_e_reduzir_ano(ano: int, chunksize: int = 100000) -> pd.DataFrame:
     url = f"https://www.bcb.gov.br/pda/desig/scrdata_{ano}.zip"
-    print(f"📥 Baixando arquivo oficial do SCR.data (Ano: {ano})...")
+    print(f"Baixando arquivo oficial do SCR.data (Ano: {ano})...")
     headers = {"User-Agent": "Mozilla/5.0"}
     resp = requests.get(url, headers=headers, stream=True, timeout=120)
     resp.raise_for_status()
@@ -22,7 +22,7 @@ def _baixar_e_reduzir_ano(ano: int, chunksize: int = 100000) -> pd.DataFrame:
         if not arquivos_internos:
             raise FileNotFoundError(f"Nenhum arquivo CSV encontrado dentro do ZIP do BCB ({ano}).")
         for csv_filename in arquivos_internos:
-            print(f" 📄 Extraindo arquivo interno: {csv_filename}")
+            print(f"Extraindo arquivo interno: {csv_filename}")
             with z.open(csv_filename) as f:
                 reader = pd.read_csv(f, sep=";", encoding="utf-8-sig", chunksize=chunksize, low_memory=False)
                 for chunk in reader:
@@ -47,7 +47,7 @@ def _estratificar_por_uf(df: pd.DataFrame, n_amostra_total: int) -> pd.DataFrame
 def download_and_process():
     os.makedirs(PROCESSED_DIR, exist_ok=True)
     
-    # Limpa arquivo parquet antigo para não acumular lixo na máquina/nuvem
+    # Limpa arquivo parquet antigo para não acumular na nuvem
     if os.path.exists(PARQUET_FILE):
         os.remove(PARQUET_FILE)
 
@@ -70,7 +70,6 @@ def download_and_process():
     df_bruto["data_base"] = pd.to_datetime(df_bruto["data_base"], errors="coerce")
     df_bruto = df_bruto[df_bruto["data_base"] >= cutoff]
 
-    # Amostra reduzida e garantida em 30.000 registros
     df_pandas = _estratificar_por_uf(df_bruto, n_amostra_total=30000)
 
     # Conversões monetárias e alvo
@@ -88,7 +87,7 @@ def download_and_process():
 
     df_polars = pl.from_pandas(df_pandas)
     df_polars.write_parquet(PARQUET_FILE)
-    print(f"Sucesso! Amostra atualizada com {df_polars.height} registros (30k) salvos em {PARQUET_FILE}.")
+    print(f"Sucesso! Amostra atualizada.")
 
 if __name__ == "__main__":
     download_and_process()

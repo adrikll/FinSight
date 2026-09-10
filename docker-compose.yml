@@ -6,17 +6,10 @@ services:
     container_name: finsight_api
     ports:
       - "8000:8000"
-    volumes:
-      - .:/app
     environment:
       - PORT=8000
-      - POSTGRES_URL=${POSTGRES_URL:-postgresql://finsight_user:finsight_password@postgres:5432/finsight_db}
-      - MONGO_URI=${MONGO_URI:-mongodb://mongodb:27017}
-      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING:-}
+      - KEY_VAULT_URL=https://kv-finsight-ak2026.vault.azure.net/
       - AZURE_BLOB_CONTAINER=finsight-artifacts
-    depends_on:
-      - postgres
-      - mongodb
     restart: always
 
   postgres:

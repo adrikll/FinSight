@@ -20,7 +20,7 @@ export default function MapaBrasil({ mapaUf, metricaMapa, ufSelecionada, onSelec
   return (
     <ComposableMap 
       projection="geoMercator" 
-      projectionConfig={{ scale: 520, center: [-53, -15] }} /* Scale reduzido para afastar as pontas das bordas */
+      projectionConfig={{ scale: 520, center: [-53, -15] }} 
       width={460} 
       height={380}
       viewBox="0 0 460 380"

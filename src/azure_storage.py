@@ -16,7 +16,7 @@ def get_blob_service_client():
         return None
 
 def upload_file_to_azure(file_path: str, blob_name: str) -> bool:
-    """Envia arquivos locais (modelos, CSVs, relatórios) para o Azure Blob Storage."""
+    """Envia arquivos locais para o Azure Blob Storage."""
     client = get_blob_service_client()
     if not client:
         return False

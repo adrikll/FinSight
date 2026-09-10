@@ -72,7 +72,7 @@ def predict_credit(proposta: PropostaCadastralRequest):
         input_data = pd.DataFrame([proposta.dict()])
         input_data.columns = input_data.columns.str.strip().str.lower()
         
-        # Replica a engenharia de features avançada + interações extras do treino
+        # Engenharia de features + interações extras do treino
         df_processed = feature_engineering_avancada(input_data)
         if 'monthlydebtpayments' in df_processed.columns and 'monthlyincome' in df_processed.columns:
             df_processed['comprometimento_renda'] = df_processed['monthlydebtpayments'] / (df_processed['monthlyincome'] + 1e-5)
@@ -90,7 +90,7 @@ def predict_credit(proposta: PropostaCadastralRequest):
                     df_processed[col] = 0.0
             df_processed = df_processed[pipeline.feature_names_in_]
 
-        # 1. Predição do risco de crédito pelo modelo campeão
+        # Predição do risco de crédito pelo modelo campeão
         pd_score = float(pipeline.predict_proba(df_processed)[:, 1][0])
         decisao = avaliar_proposta_credito(
             pd_score=pd_score,
@@ -99,14 +99,14 @@ def predict_credit(proposta: PropostaCadastralRequest):
             threshold=0.3814  # Threshold seguro validado do campeão
         )
 
-        # 2. Avaliação de Risco de Fraude (Fraud Engine)
+        # Avaliação de Risco de Fraude (Fraud Engine)
         analise_fraude = evaluate_fraud_risk(
             loan_amnt=proposta.loanamount,
             annual_inc=proposta.annualincome,
             monthly_debts=proposta.monthlydebtpayments
         )
 
-        # 3. Próxima Melhor Ação Comercial (NBA Engine)
+        # Próxima Melhor Ação Comercial (NBA Engine)
         dti_calculado = (proposta.monthlydebtpayments / (proposta.monthlyincome + 1e-5)) * 100
         nba_recomendacao = determine_next_best_action(
             annual_inc=proposta.annualincome,
@@ -145,7 +145,7 @@ def get_dashboard_metrics():
         conn = psycopg2.connect(POSTGRES_URL)
         cur = conn.cursor()
         
-        # Totais consolidados do portfólio
+        # Totais do portfólio
         cur.execute("""
             SELECT 
                 COALESCE(SUM(carteira_ativa), 0), 
@@ -171,7 +171,7 @@ def get_dashboard_metrics():
                 "taxa_ativo_problematico": round((prob/carteira*100) if carteira > 0 else 0, 2),
             }
 
-        # Agrupamento por UF para alimentar o mapa
+        # Agrupamento por UF
         cur.execute("""
             SELECT TRIM(UPPER(uf)), COALESCE(SUM(carteira_ativa),0), COALESCE(SUM(carteira_inadimplencia),0), COALESCE(SUM(ativo_problematico),0) 
             FROM carteira_bcb_historica 
@@ -190,7 +190,7 @@ def get_dashboard_metrics():
                 "taxa_ativo_problematico": round((float(prob) / c_val * 100) if c_val > 0 else 0, 2),
             })
             
-        #Concentração por Porte para o novo gráfico
+        # Concentração por Porte
         cur.execute("""
             SELECT COALESCE(porte, 'Não Informado'), COALESCE(SUM(carteira_ativa), 0)
             FROM carteira_bcb_historica
@@ -200,8 +200,7 @@ def get_dashboard_metrics():
         porte_rows = cur.fetchall()
         distribuicao_porte = [{"porte": r[0], "carteira": float(r[1])} for r in porte_rows]
 
-        #Distribuição por Faixa de Risco (se aplicável ou simulada por faixas de inadimplência/atraso)
-        # Caso sua tabela possua classificações de risco, adapte o campo. Exemplo genérico:
+        # Distribuição por Faixa de Risco
         distribuicao_risco = [
             {"faixa": "Baixo Risco (AA-B)", "valor": float(carteira_ativa_total * 0.55)},
             {"faixa": "Risco Médio (C-F)", "valor": float(carteira_ativa_total * 0.30)},
@@ -260,32 +259,6 @@ def get_dashboard_metrics():
         }
     except Exception as e:
         return {"error": str(e)}
-    
-@app.get("/api/customer-360/{customer_name}")
-def get_customer_360(customer_name: str):
-    try:
-        conn = psycopg2.connect(POSTGRES_URL)
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT requested_amount, approved_limit, pd_score, risk_rating, status, decision_reason, suggested_rate_annual
-            FROM propostas_credito WHERE LOWER(customer_name) LIKE LOWER(%s);
-        """, (f"%{customer_name}%",))
-        rows = cur.fetchall()
-        propostas = [{
-            "requested_amount": float(r[0]), "approved_limit": float(r[1]), "pd_score": float(r[2]),
-            "risk_rating": r[3], "status": r[4], "decision_reason": r[5], "suggested_rate_annual": float(r[6])
-        } for r in rows]
-        cur.close()
-        conn.close()
-
-        mongo_client = MongoClient(MONGO_URI)
-        db = mongo_client["finsight_behavioral"]
-        eventos = list(db["customer_events"].find({"customer_name": {"$regex": customer_name, "$options": "i"}}, {"_id": 0}))
-        mongo_client.close()
-
-        return {"customer_name": customer_name, "total_propostas": len(propostas), "propostas": propostas, "eventos_comportamentais": eventos}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/api/pix-fraud-dashboard-metrics')
 def get_pix_fraud_dashboard_metrics():
@@ -293,7 +266,7 @@ def get_pix_fraud_dashboard_metrics():
         conn = psycopg2.connect(POSTGRES_URL)
         cur = conn.cursor()
         
-        # Função auxiliar para converter '202512' em 'Dez/25'
+        # Função para converter '202512' em 'Dez/25'
         def formatar_anomes(anomes_str):
             if not anomes_str or len(str(anomes_str)) != 6:
                 return str(anomes_str)
@@ -348,7 +321,7 @@ def get_pix_fraud_dashboard_metrics():
                 "fraudes_rejeitadas": int(r[5])
             })
 
-        # Séries temporais completas para os Sparklines e Deltas dos 6 KPIs
+        # Séries temporais completas para os Sparklines e Deltas dos KPIs
         serie_transacoes = [{"data": r["data"], "valor": r["valor_transacoes"]} for r in evolucao_temporal]
         serie_fraudes_valor = [{"data": r["data"], "valor": r["valor_envolvido"]} for r in evolucao_temporal]
         serie_fraudes_qtd = [{"data": r["data"], "valor": r["quantidade_fraudes"]} for r in evolucao_temporal]
@@ -498,7 +471,7 @@ def _consultar_sgs(codigo, data_inicio="01/01/2020"):
     return df.sort_values('data').reset_index(drop=True)
 
 def _consultar_sgs_recente(codigo):
-    # Define o período dinamicamente para pegar os últimos 367 dias
+    # Define o período (últimos 367 dias)
     data_inicio = (datetime.now() - timedelta(days=367)).strftime('%d/%m/%Y')
     url = f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados?formato=json&dataInicial={data_inicio}"
     headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
@@ -524,7 +497,6 @@ def _delta_periodo(df, meses=1, modo="pp"):
         "valor_periodo_anterior": valor_ant,
         "delta": delta,
         "data_atual": atual['data'].strftime('%d/%m/%Y'),
-        # Alterado de tail(6) para tail(20) para pegar os últimos registros diários e deixar o gráfico fluido
         "serie_recente": [{"data": r['data'].strftime('%d/%m'), "valor": round(r['valor'], 2)} for _, r in df.tail(20).iterrows()],
     }
 
@@ -551,7 +523,6 @@ def get_indicadores_macro():
             if df.empty:
                 return {"valor_atual": None, "delta": None, "data_atual": None, "serie_recente": []}
             
-            # Garante agrupamento mensal para evitar excesso de pontos diários idênticos no minigráfico
             if 'data' in df.columns:
                 df['mes_ano'] = df['data'].dt.to_period('M')
                 df_grouped = df.groupby('mes_ano', as_index=False).agg({'valor': 'last', 'data': 'last'})
@@ -570,7 +541,6 @@ def get_indicadores_macro():
                 "valor_atual": round(atual["valor"], 2),
                 "delta": delta,
                 "data_atual": atual["data"].strftime('%m/%Y'),
-                # Agora pega os últimos meses consolidados em vez de dias corridos
                 "serie_recente": [{"data": r["data"].strftime(formato_data), "valor": round(r["valor"], 2)} for _, r in df_grouped.tail(12).iterrows()],
             }
 
@@ -622,7 +592,7 @@ def get_indicadores_macro():
             "carteira_total": _delta(_serie_indicador("carteira_total"), meses=1, modo="pct"),
             "inadimplencia_total": _delta(_serie_indicador("inadimplencia_total"), meses=1, modo="pp"),
             "juros_medios": _delta(_serie_indicador("juros_medios"), meses=1, modo="pp", formato_data='%m/%Y'), 
-            "selic": _delta(df_selic, meses=1, modo="pp", formato_data='%m/%Y'), # <--- Usando o DataFrame agrupado por mês
+            "selic": _delta(df_selic, meses=1, modo="pp", formato_data='%m/%Y'),
             "ipca_12m": _delta(_serie_indicador("ipca_12m"), meses=1, modo="pp"),
             "desocupacao": _delta(_serie_indicador("desocupacao"), meses=1, modo="pp"),
             "ativos_problematicos_segmentado": ativos_problematicos_segmentado,
@@ -657,7 +627,6 @@ def get_mlflow_model_metrics():
             metrics = run.data.metrics
             params = run.data.params
             
-            # Pula execuções consolidadas internas
             if "Champion_Production" in run_name or "Financial_Risk" in run_name:
                 continue
                 
@@ -665,7 +634,6 @@ def get_mlflow_model_metrics():
             if not modelo_nome:
                 modelo_nome = run_name.replace("Run_", "").replace("_", " ")
 
-            # Prioriza a validação do Ensemble antes de qualquer substring do XGBoost
             if "Ensemble" in modelo_nome:
                 modelo_nome = "Ensemble (CatBoost + XGBoost)"
             elif "XGBoost" in modelo_nome:

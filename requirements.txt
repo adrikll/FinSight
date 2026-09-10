@@ -16,7 +16,7 @@ jupyter
 optuna
 seaborn
 imbalanced-learn
-category-encoders
+category-encoders==2.5.1
 catboost
 fastapi
 uvicorn

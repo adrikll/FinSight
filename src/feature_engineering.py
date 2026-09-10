@@ -6,8 +6,6 @@ def feature_engineering_avancada(df: pd.DataFrame) -> pd.DataFrame:
 
     df.columns = df.columns.str.strip().str.lower()
 
-    # --- REMOÇÃO RÍGIDA DE VARIÁVEIS DE BIRÔ, HISTÓRICO EXTERNO E PÓS-ANÁLISE ---
-    # Mantendo apenas o que o usuário efetivamente preenche no formulário de simulação cadastral.
     drop_features = [
         "applicationdate", "creditscore", "bankruptcyhistory", "previousloandefaults", 
         "paymenthistory", "lengthofcredithistory", "numberofopencreditlines", 
