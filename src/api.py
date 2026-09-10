@@ -27,7 +27,7 @@ import sys
 from src.models import EnsembleClassifier
 sys.modules['models'] = sys.modules['src.models']
 
-app = FastAPI(title="FinSight Credit & Pix Engine API", version="3.2.0")
+app = FastAPI(title="FinSight", version="3.2.0")
 
 app.add_middleware(
     CORSMiddleware,
