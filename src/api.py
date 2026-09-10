@@ -1,3 +1,4 @@
+import os
 import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
@@ -17,6 +18,10 @@ from src.feature_engineering import feature_engineering_avancada
 from src.decision_engine import avaliar_proposta_credito
 from src.fraud_engine import evaluate_fraud_risk
 from src.nba_engine import determine_next_best_action
+
+os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"
+mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "file:///app/mlruns")
+mlflow.set_tracking_uri(mlflow_tracking_uri)
 
 import sys
 from src.models import EnsembleClassifier

@@ -16,7 +16,7 @@ jupyter
 optuna
 seaborn
 imbalanced-learn
-category-encoders==2.5.1
+category_encoders>=2.6.0
 catboost
 fastapi
 uvicorn
@@ -28,3 +28,4 @@ azure-identity
 azure-keyvault-secrets
 kagglehub
 imbalanced-learn
+streamlit

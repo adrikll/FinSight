@@ -13,13 +13,10 @@ __pycache__/
 catboost_info/
 mlruns/
 mlflow.db
-mlruns.db
 
 # Dados Brutos / Processados 
 data/raw/
 data/processed/
-
-# artifacts/*.pkl
 
 # Dependências do Frontend
 frontend/node_modules/
