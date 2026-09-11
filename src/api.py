@@ -19,8 +19,18 @@ from src.decision_engine import avaliar_proposta_credito
 from src.fraud_engine import evaluate_fraud_risk
 from src.nba_engine import determine_next_best_action
 
-os.environ["MLFLOW_ALLOW_FILE_STORE"] = "true"
-mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "file:///app/mlruns")
+# Configura o MLflow para usar o PostgreSQL da Azure
+mlflow_tracking_uri = os.getenv("POSTGRES_URL")
+if mlflow_tracking_uri and mlflow_tracking_uri.startswith("postgresql://"):
+  
+  mlflow_tracking_uri = mlflow_tracking_uri.replace(
+      "postgresql://", "postgresql+psycopg2://"
+  )
+else:
+  mlflow_tracking_uri = os.getenv(
+      "MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"
+  )
+
 mlflow.set_tracking_uri(mlflow_tracking_uri)
 
 import sys

@@ -26,3 +26,6 @@ frontend/dist/
 .vscode/
 .idea/
 .DS_Store
+
+# Arquivos de teste e análise temporários
+eda.ipynb
