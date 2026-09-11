@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { Sun, Moon, LayoutDashboard, AlertOctagon, Calculator, ShieldCheck } from 'lucide-react';
-import Logo from './Logo'; 
+import Logo from '.frontend/src/componenents/Logo';
 
 export default function Sidebar({ activeTab, setActiveTab }) {
   const { theme, toggleTheme } = useTheme();
