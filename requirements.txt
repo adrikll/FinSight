@@ -4,17 +4,16 @@ sqlalchemy
 pandas
 pymongo
 pyarrow
+psycopg2
 psycopg2-binary
 xgboost
 lightgbm
 mlflow==3.15.1
 shap
 matplotlib
-seaborn
 jupyter
 optuna
 seaborn
-imbalanced-learn
 catboost
 fastapi
 uvicorn
@@ -24,7 +23,6 @@ httpx
 azure-storage-blob
 azure-identity
 azure-keyvault-secrets
-kagglehub
 imbalanced-learn
 scikit-learn==1.9.0
 category-encoders==2.10.0
