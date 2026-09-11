@@ -9,6 +9,11 @@ jobs:
   atualizar-dados-mensais:
     name: Sincronizar APIs do BCB e Banco Azure
     runs-on: ubuntu-latest
+    
+    # Define a pasta src como padrão para todas as execuções do runner
+    defaults:
+      run:
+        working-directory: ./src
 
     steps:
       - name: Checkout do Repositório
@@ -24,34 +29,34 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -f src/requirements.txt ]; then pip install -r src/requirements.txt; fi
+          if [ -f ../requirements.txt ]; then pip install -r ../requirements.txt; fi
 
       - name: 1. Inicializar / Garantir Estrutura das Tabelas
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
           MONGO_URI: ${{ secrets.MONGO_URI }}
-        run: python src/init_db.py
+        run: python init_db.py
 
       - name: 2. Baixar e Atualizar Indicadores Macroeconômicos
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-        run: python src/macro_loader.py
+        run: python macro_loader.py
 
       - name: 3. Processar Amostra do SCR.data (Banco Central)
-        run: python src/bcb_data_prep.py
+        run: python bcb_data_prep.py
 
       - name: 4. Carga da Carteira de Crédito no Azure PostgreSQL
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-        run: python src/bcb_data_load.py
+        run: python bcb_data_load.py
 
       - name: 5. Processar Dados do Ecossistema Pix e Fraudes/MED
-        run: python src/fraud_data_prep.py
+        run: python fraud_data_prep.py
 
       - name: 6. Carga de Pix e Fraudes no Azure PostgreSQL
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-        run: python src/fraud_data_load.py
+        run: python fraud_data_load.py
 
       - name: Notificar Sucesso da Atualização
-        run: echo "Atualização mensal concluída com sucesso! Os dados foram atualizados de forma limpa na Azure."
+        run: echo "Atualização mensal concluída com sucesso!"
