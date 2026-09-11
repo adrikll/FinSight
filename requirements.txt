@@ -4,7 +4,6 @@ sqlalchemy
 pandas
 pymongo
 pyarrow
-psycopg2
 psycopg2-binary
 xgboost
 lightgbm
