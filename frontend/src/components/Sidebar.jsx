@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { Sun, Moon, LayoutDashboard, AlertOctagon, Calculator, ShieldCheck } from 'lucide-react';
+import Logo from './Logo'; 
 
 export default function Sidebar({ activeTab, setActiveTab }) {
   const { theme, toggleTheme } = useTheme();
@@ -15,8 +16,9 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   return (
     <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between p-6 transition-colors">
       <div>
-        <div className="flex items-center gap-3 mb-10">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide">FinSight</h1>
+        {/* Logo integrada e centralizada na barra */}
+        <div className="flex items-center gap-3 mb-10 px-2">
+          <Logo />
         </div>
 
         <nav className="space-y-2">
