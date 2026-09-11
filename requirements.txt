@@ -28,3 +28,4 @@ kagglehub
 imbalanced-learn
 scikit-learn==1.9.0
 category-encoders==2.10.0
+python-dotenv

@@ -627,7 +627,7 @@ def get_mlflow_model_metrics():
         experiment = client.get_experiment_by_name(experiment_name)
         
         if not experiment:
-            raise HTTPException(status_code=404, detail="Nenhum experimento do MLflow encontrado.")
+            raise HTTPException(status_code=404, detail="Nenhum experimento do MLflow encontrado. Execute o pipeline de treinamento para registrar os modelos.")
             
         runs = client.search_runs(
             experiment_ids=[experiment.experiment_id],
@@ -635,7 +635,6 @@ def get_mlflow_model_metrics():
         )
         
         modelos_unicos = {}
-        
         for run in runs:
             tags = run.data.tags
             run_name = tags.get("mlflow.runName", "")
@@ -674,16 +673,14 @@ def get_mlflow_model_metrics():
                 }
                 
         runs_data = list(modelos_unicos.values())
-        
         if not runs_data:
-            raise HTTPException(status_code=404, detail="Nenhum modelo válido encontrado.")
+            raise HTTPException(status_code=404, detail="Nenhum modelo válido encontrado no experimento do MLflow.")
             
         runs_data = sorted(runs_data, key=lambda x: x["auc"], reverse=True)
         runs_data[0]["status"] = "Produção"
-        campeao = runs_data[0]
 
         return {
-            "campeao": campeao,
+            "campeao": runs_data[0],
             "comparativo": runs_data
         }
     except Exception as e:

@@ -45,8 +45,13 @@ export default function RiskModelsDashboard() {
     return (
       <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-lg text-center space-y-4">
         <AlertTriangle className="w-10 h-10 text-red-500 dark:text-red-400 mx-auto" />
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Falha ao Conectar com o Repositório do MLflow</h3>
-        <p className="text-sm text-red-600 dark:text-red-300 max-w-md mx-auto">{erroApi}</p>
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Repositório do MLflow Não Inicializado</h3>
+        <p className="text-sm text-red-600 dark:text-red-300 max-w-lg mx-auto">
+          {erroApi}
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+          Causa: O banco PostgreSQL na Azure está conectado, mas o experimento de tracking ainda não foi populado por um script de treinamento em produção.
+        </p>
         <button onClick={buscarMetricasMlflow} className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors">
           Tentar Novamente
         </button>

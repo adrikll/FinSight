@@ -23,6 +23,18 @@ from feature_engineering import feature_engineering_avancada
 from prepare_loan_dataset import carregar_dataset_loan
 from models import EnsembleClassifier
 
+from dotenv import load_dotenv
+load_dotenv()
+
+mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+
+if not mlflow_tracking_uri:
+  raise ValueError(
+      "A variável de ambiente MLFLOW_TRACKING_URI não está definida."
+  )
+
+mlflow.set_tracking_uri(mlflow_tracking_uri)
+
 EXPERIMENT_NAME = "FinSight_Loan_Approval_Risk"
 MODEL_PKL_PATH = "artifacts/champion_model.pkl"
 
