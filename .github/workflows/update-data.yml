@@ -39,7 +39,7 @@ jobs:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
         run: python macro_loader.py
 
-      - name: 3. BCB Prep (Atencao - Baixa arquivos pesados)
+      - name: 3. BCB Prep
         run: python bcb_data_prep.py
 
       - name: 4. BCB Load
