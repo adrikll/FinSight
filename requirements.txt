@@ -7,7 +7,7 @@ pyarrow
 psycopg2-binary
 xgboost
 lightgbm
-mlflow
+mlflow==3.15.1
 shap
 matplotlib
 seaborn
