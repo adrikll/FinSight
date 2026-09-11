@@ -3,7 +3,6 @@ name: Atualizacao Mensal do Dashboard (FinSight)
 on:
   schedule:
     - cron: '0 2 1 * *'
-  
   workflow_dispatch:
 
 jobs:
@@ -31,40 +30,28 @@ jobs:
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
           MONGO_URI: ${{ secrets.MONGO_URI }}
-        run: |
-          cd src
-          python init_db.py
+        run: python src/init_db.py
 
       - name: 2. Baixar e Atualizar Indicadores Macroeconômicos
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-        run: |
-          cd src
-          python macro_loader.py
+        run: python src/macro_loader.py
 
       - name: 3. Processar Amostra do SCR.data (Banco Central)
-        run: |
-          cd src
-          python bcb_data_prep.py
+        run: python src/bcb_data_prep.py
 
       - name: 4. Carga da Carteira de Crédito no Azure PostgreSQL
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-        run: |
-          cd src
-          python bcb_data_load.py
+        run: python src/bcb_data_load.py
 
       - name: 5. Processar Dados do Ecossistema Pix e Fraudes/MED
-        run: |
-          cd src
-          python fraud_data_prep.py
+        run: python src/fraud_data_prep.py
 
       - name: 6. Carga de Pix e Fraudes no Azure PostgreSQL
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-        run: |
-          cd src
-          python fraud_data_load.py
+        run: python src/fraud_data_load.py
 
       - name: Notificar Sucesso da Atualização
         run: echo "Atualização mensal concluída com sucesso! Os dados foram atualizados de forma limpa na Azure."
