@@ -1,0 +1,23 @@
+name: FinSight Keep-Alive
+
+on:
+  schedule:
+    # Executa a cada 10 minutos para evitar a hibernação do Render
+    - cron: '*/10 * * * *'
+  workflow_dispatch: 
+
+jobs:
+  ping-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar requisição de Keep-Alive para a API no Render
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://finsight-5u0t.onrender.com/health)
+          echo "Status HTTP recebido do Render: $RESPONSE"
+          
+          if [ "$RESPONSE" -eq 200 ]; then
+            echo "Back-end está acordado e ativo!"
+          else
+            echo "Aviso: O back-end respondeu com o código HTTP $RESPONSE"
+            exit 1
+          fi
