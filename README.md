@@ -62,4 +62,6 @@ O FinSight baseia-se em conjuntos de dados reais e representativos do mercado fi
 
 O projeto adota uma arquitetura em nuvem moderna, desacoplada e altamente escalável:
 
-![Arquitetura dos Dados](imgs/arquitetura_dados.png)
+<p align="center">
+  <img src="imgs/arquitetura_dados.png" alt="Arquitetura dos Dados" width="450"/>
+</p>
