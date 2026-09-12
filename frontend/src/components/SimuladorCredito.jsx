@@ -7,13 +7,13 @@ export default function SimuladorCredito() {
     age: '',
     annualincome: '',
     monthlyincome: '',
-    employmentstatus: '',
+    employmentstatus: 'employed',
     educationlevel: '',
     experience: '',
     loanamount: '',
-    loanduration: '',
+    loanduration: '12',
     maritalstatus: '',
-    numberofdependents: '',
+    numberofdependents: '0',
     homeownershipstatus: '',
     monthlydebtpayments: '',
     creditcardutilizationrate: '',
@@ -23,7 +23,7 @@ export default function SimuladorCredito() {
     totalliabilities: '',
     jobtenure: '',
     networth: '',
-    loanpurpose: '',
+    loanpurpose: 'debt consolidation',
     uf: ''
   });
 
@@ -103,27 +103,27 @@ export default function SimuladorCredito() {
   };
 
   return (
-    <div className="space-y-10 w-full max-w-full px-2 pb-16 text-slate-900 dark:text-slate-100 transition-colors">
-      {/* Cabeçalho*/}
-      <div className="bg-white dark:bg-slate-900/60 p-8 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm transition-colors">
-        <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Simulador Inteligente de Crédito</h2>
-        <p className="text-lg text-slate-600 dark:text-slate-300 mt-3">
-          Preencha os campos abaixo para realizar a análise de risco baseada em seu perfil socioeconômico e capacidade financeira.
+    <div className="space-y-8 w-full max-w-full pb-16 text-slate-900 dark:text-slate-100 transition-colors">
+      {/* Cabeçalho */}
+      <div className="bg-white dark:bg-slate-900/60 p-6 md:p-8 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm transition-colors">
+        <h2 className="text-xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Simulador Inteligente de Crédito</h2>
+        <p className="text-sm md:text-base text-slate-600 dark:text-slate-300 mt-2">
+          Preencha os campos abaixo para realizar a análise de risco baseada em seu perfil socioeconômico.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-12">
+      <form onSubmit={handleSubmit} className="space-y-8">
         
-        {/* BLOCO 1: Informações Pessoais & Profissionais */}
-        <div className="bg-white dark:bg-slate-900/40 p-8 rounded-2xl border border-slate-200 dark:border-slate-800/60 space-y-6 shadow-sm transition-colors">
-          <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
-            <h3 className="text-xl font-bold text-purple-600 dark:text-purple-400">Informações Pessoais e Profissionais</h3>
-            <p className="text-base text-slate-600 dark:text-slate-400 mt-1">Dados cadastrais básicos do solicitante.</p>
+        {/* BLOCO 1 */}
+        <div className="bg-white dark:bg-slate-900/40 p-5 md:p-8 rounded-2xl border border-slate-200 dark:border-slate-800/60 space-y-5 shadow-sm transition-colors">
+          <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 className="text-lg md:text-xl font-bold text-purple-600 dark:text-purple-400">Informações Pessoais e Profissionais</h3>
+            <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400 mt-0.5">Dados cadastrais básicos do solicitante.</p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div>
-              <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Nome Completo do Cliente</label>
+              <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Nome Completo do Cliente</label>
               <input 
                 type="text" 
                 name="name" 
@@ -131,13 +131,13 @@ export default function SimuladorCredito() {
                 value={formData.name} 
                 onChange={handleChange} 
                 placeholder="Ex: João da Silva" 
-                className="w-full p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg focus:border-purple-500 focus:outline-none" 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base focus:border-purple-500 focus:outline-none" 
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Qual a sua idade?</label>
+                <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Idade</label>
                 <input 
                   type="number" 
                   name="age" 
@@ -145,17 +145,17 @@ export default function SimuladorCredito() {
                   value={formData.age} 
                   onChange={handleChange} 
                   placeholder="Ex: 30" 
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg focus:border-purple-500 focus:outline-none" 
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base focus:border-purple-500 focus:outline-none" 
                 />
               </div>
 
               <div>
-                <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Qual a sua Situação Profissional?</label>
+                <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Situação Profissional</label>
                 <select 
                   name="employmentstatus" 
                   value={formData.employmentstatus} 
                   onChange={handleChange} 
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg focus:border-purple-500 focus:outline-none"
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base focus:border-purple-500 focus:outline-none"
                 >
                   <option value="employed">Empregado (CLT)</option>
                   <option value="self-employed">Autônomo / Empresário</option>
@@ -164,7 +164,7 @@ export default function SimuladorCredito() {
               </div>
 
               <div>
-                <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Qual o seu Estado (UF)?</label>
+                <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Estado (UF)</label>
                 <input 
                   type="text" 
                   name="uf" 
@@ -173,26 +173,26 @@ export default function SimuladorCredito() {
                   value={formData.uf} 
                   onChange={handleChange} 
                   placeholder="Ex: SP" 
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg uppercase focus:border-purple-500 focus:outline-none" 
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base uppercase focus:border-purple-500 focus:outline-none" 
                 />
               </div>
             </div>
           </div>
         </div>
 
-        {/* BLOCO 2: Renda, Dívidas e Solicitação de Crédito */}
-        <div className="bg-white dark:bg-slate-900/40 p-8 rounded-2xl border border-slate-200 dark:border-slate-800/60 space-y-6 shadow-sm transition-colors">
-          <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
-            <h3 className="text-xl font-bold text-purple-600 dark:text-purple-400">Renda, Dívidas e Solicitação de Crédito</h3>
-            <p className="text-base text-slate-600 dark:text-slate-400 mt-1">Detalhes sobre os valores pretendidos e fluxo mensal de caixa.</p>
+        {/* BLOCO 2 */}
+        <div className="bg-white dark:bg-slate-900/40 p-5 md:p-8 rounded-2xl border border-slate-200 dark:border-slate-800/60 space-y-5 shadow-sm transition-colors">
+          <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 className="text-lg md:text-xl font-bold text-purple-600 dark:text-purple-400">Renda, Dívidas e Solicitação de Crédito</h3>
+            <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400 mt-0.5">Detalhes financeiros pretendidos.</p>
           </div>
 
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Qual o valor da sua Renda Mensal?</label>
+                <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Renda Mensal</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-4 text-base font-semibold text-slate-500 dark:text-slate-400">R$</span>
+                  <span className="absolute left-3.5 top-3.5 text-xs md:text-sm font-semibold text-slate-500">R$</span>
                   <input 
                     type="text" 
                     name="monthlyincome" 
@@ -200,15 +200,15 @@ export default function SimuladorCredito() {
                     value={formData.monthlyincome} 
                     onChange={handleCurrencyChange} 
                     placeholder="Ex: 7.500,00"
-                    className="w-full pl-12 p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg focus:border-purple-500 focus:outline-none" 
+                    className="w-full pl-10 p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base focus:border-purple-500 focus:outline-none" 
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Qual o valor da sua Renda Anual estimada?</label>
+                <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Renda Anual Estimada</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-4 text-base font-semibold text-slate-500 dark:text-slate-400">R$</span>
+                  <span className="absolute left-3.5 top-3.5 text-xs md:text-sm font-semibold text-slate-500">R$</span>
                   <input 
                     type="text" 
                     name="annualincome" 
@@ -216,17 +216,17 @@ export default function SimuladorCredito() {
                     value={formData.annualincome} 
                     onChange={handleCurrencyChange} 
                     placeholder="Ex: 90.000,00"
-                    className="w-full pl-12 p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg focus:border-purple-500 focus:outline-none" 
+                    className="w-full pl-10 p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base focus:border-purple-500 focus:outline-none" 
                   />
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Quanto de empréstimo você deseja solicitar?</label>
+                <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Valor do Empréstimo Desejado</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-4 text-base font-semibold text-slate-500 dark:text-slate-400">R$</span>
+                  <span className="absolute left-3.5 top-3.5 text-xs md:text-sm font-semibold text-slate-500">R$</span>
                   <input 
                     type="text" 
                     name="loanamount" 
@@ -234,15 +234,15 @@ export default function SimuladorCredito() {
                     value={formData.loanamount} 
                     onChange={handleCurrencyChange} 
                     placeholder="Ex: 20.000,00"
-                    className="w-full pl-12 p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg focus:border-purple-500 focus:outline-none" 
+                    className="w-full pl-10 p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base focus:border-purple-500 focus:outline-none" 
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Quanto você paga de dívidas/empréstimos por mês?</label>
+                <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Pagamento Mensal de Dívidas Atuais</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-4 text-base font-semibold text-slate-500 dark:text-slate-400">R$</span>
+                  <span className="absolute left-3.5 top-3.5 text-xs md:text-sm font-semibold text-slate-500">R$</span>
                   <input 
                     type="text" 
                     name="monthlydebtpayments" 
@@ -250,19 +250,19 @@ export default function SimuladorCredito() {
                     value={formData.monthlydebtpayments} 
                     onChange={handleCurrencyChange} 
                     placeholder="Ex: 1.200,00"
-                    className="w-full pl-12 p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg focus:border-purple-500 focus:outline-none" 
+                    className="w-full pl-10 p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base focus:border-purple-500 focus:outline-none" 
                   />
                 </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Qual a finalidade deste empréstimo?</label>
+              <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Finalidade do Empréstimo</label>
               <select 
                 name="loanpurpose" 
                 value={formData.loanpurpose} 
                 onChange={handleChange} 
-                className="w-full p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg focus:border-purple-500 focus:outline-none"
+                className="w-full p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base focus:border-purple-500 focus:outline-none"
               >
                 <option value="debt consolidation">Quitação de Dívidas</option>
                 <option value="home improvement">Reforma Residencial</option>
@@ -273,19 +273,19 @@ export default function SimuladorCredito() {
           </div>
         </div>
 
-        {/* BLOCO 3: Patrimônio e Passivos */}
-        <div className="bg-white dark:bg-slate-900/40 p-8 rounded-2xl border border-slate-200 dark:border-slate-800/60 space-y-6 shadow-sm transition-colors">
-          <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
-            <h3 className="text-xl font-bold text-purple-600 dark:text-purple-400">Patrimônio e Passivos</h3>
-            <p className="text-base text-slate-600 dark:text-slate-400 mt-1">Composição de bens, passivos e garantias patrimoniais.</p>
+        {/* BLOCO 3 */}
+        <div className="bg-white dark:bg-slate-900/40 p-5 md:p-8 rounded-2xl border border-slate-200 dark:border-slate-800/60 space-y-5 shadow-sm transition-colors">
+          <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 className="text-lg md:text-xl font-bold text-purple-600 dark:text-purple-400">Patrimônio e Passivos</h3>
+            <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400 mt-0.5">Composição patrimonial.</p>
           </div>
 
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Valor Total dos Seus Bens</label>
+                <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Bens Totais</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-4 text-base font-semibold text-slate-500 dark:text-slate-400">R$</span>
+                  <span className="absolute left-3.5 top-3.5 text-xs md:text-sm font-semibold text-slate-500">R$</span>
                   <input 
                     type="text" 
                     name="totalassets" 
@@ -293,15 +293,15 @@ export default function SimuladorCredito() {
                     value={formData.totalassets} 
                     onChange={handleCurrencyChange} 
                     placeholder="Ex: 50.000,00"
-                    className="w-full pl-12 p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg focus:border-purple-500 focus:outline-none" 
+                    className="w-full pl-10 p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base focus:border-purple-500 focus:outline-none" 
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Valor Total de Outras Dívidas Ativas</label>
+                <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Outras Dívidas Ativas</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-4 text-base font-semibold text-slate-500 dark:text-slate-400">R$</span>
+                  <span className="absolute left-3.5 top-3.5 text-xs md:text-sm font-semibold text-slate-500">R$</span>
                   <input 
                     type="text" 
                     name="totalliabilities" 
@@ -309,15 +309,15 @@ export default function SimuladorCredito() {
                     value={formData.totalliabilities} 
                     onChange={handleCurrencyChange} 
                     placeholder="Ex: 10.000,00"
-                    className="w-full pl-12 p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg focus:border-purple-500 focus:outline-none" 
+                    className="w-full pl-10 p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base focus:border-purple-500 focus:outline-none" 
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-2">Patrimônio Líquido Estimado</label>
+                <label className="block text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Patrimônio Líquido Estimado</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-4 text-base font-semibold text-slate-500 dark:text-slate-400">R$</span>
+                  <span className="absolute left-3.5 top-3.5 text-xs md:text-sm font-semibold text-slate-500">R$</span>
                   <input 
                     type="text" 
                     name="networth" 
@@ -325,7 +325,7 @@ export default function SimuladorCredito() {
                     value={formData.networth} 
                     onChange={handleCurrencyChange} 
                     placeholder="Ex: 40.000,00"
-                    className="w-full pl-12 p-4 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-lg focus:border-purple-500 focus:outline-none" 
+                    className="w-full pl-10 p-3 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base focus:border-purple-500 focus:outline-none" 
                   />
                 </div>
               </div>
@@ -333,75 +333,50 @@ export default function SimuladorCredito() {
           </div>
         </div>
 
-        {/* Botão de Envio*/}
-        <div className="pt-2">
+        {/* Botão de Envio */}
+        <div>
           <button 
             type="submit" 
             disabled={loading} 
-            className="w-full py-6 bg-purple-600 hover:bg-purple-500 font-bold rounded-2xl text-white transition-all shadow-2xl shadow-purple-900/40 text-xl cursor-pointer"
+            className="w-full py-4 md:py-5 bg-purple-600 hover:bg-purple-500 font-bold rounded-2xl text-white transition-all shadow-xl shadow-purple-900/40 text-base md:text-lg cursor-pointer"
           >
             {loading ? 'Processando Análise com IA...' : 'Simular Crédito com IA'}
           </button>
         </div>
       </form>
 
-      {erro && <div className="p-6 bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-700/50 text-red-700 dark:text-red-300 rounded-2xl text-base">{erro}</div>}
+      {erro && <div className="p-4 md:p-6 bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-700/50 text-red-700 dark:text-red-300 rounded-2xl text-sm">{erro}</div>}
 
-      {/* Resultados*/}
+      {/* Resultados */}
       {resultado && resultado.evaluation && (
-        <div className="bg-white dark:bg-slate-900/80 p-8 md:p-10 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-8 shadow-2xl transition-colors">
-          <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Resultado Detalhado da Análise de Crédito</h3>
+        <div className="bg-white dark:bg-slate-900/80 p-6 md:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-6 shadow-2xl transition-colors">
+          <h3 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-4">Resultado Detalhado da Análise</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
-              <span className="text-sm text-slate-500 dark:text-slate-400 font-semibold block mb-2 uppercase tracking-wider">Decisão</span>
-              <p className={`text-2xl font-bold ${resultado.evaluation.status === 'APROVADO' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+              <span className="text-xs text-slate-500 font-semibold block mb-1 uppercase">Decisão</span>
+              <p className={`text-xl font-bold ${resultado.evaluation.status === 'APROVADO' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                 {resultado.evaluation.status}
               </p>
             </div>
-            <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
-              <span className="text-sm text-slate-500 dark:text-slate-400 font-semibold block mb-2 uppercase tracking-wider">Nível de Risco</span>
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{resultado.evaluation.risk_rating}</p>
+            <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+              <span className="text-xs text-slate-500 font-semibold block mb-1 uppercase">Risco</span>
+              <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{resultado.evaluation.risk_rating}</p>
             </div>
-            <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
-              <span className="text-sm text-slate-500 dark:text-slate-400 font-semibold block mb-2 uppercase tracking-wider">Score de Probabilidade</span>
-              <p className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{resultado.evaluation.approval_probability}%</p>
+            <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+              <span className="text-xs text-slate-500 font-semibold block mb-1 uppercase">Score</span>
+              <p className="text-xl font-bold text-cyan-600 dark:text-cyan-400">{resultado.evaluation.approval_probability}%</p>
             </div>
-            <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
-              <span className="text-sm text-slate-500 dark:text-slate-400 font-semibold block mb-2 uppercase tracking-wider">Limite Disponível</span>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">R$ {resultado.evaluation.approved_limit.toLocaleString('pt-BR')}</p>
+            <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+              <span className="text-xs text-slate-500 font-semibold block mb-1 uppercase">Limite</span>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">R$ {resultado.evaluation.approved_limit.toLocaleString('pt-BR')}</p>
             </div>
           </div>
 
-          <div className="p-8 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 text-base text-slate-700 dark:text-slate-200 leading-relaxed space-y-2">
-            <strong className="text-slate-900 dark:text-white font-bold block text-lg mb-2">Análise Explicativa do Perfil:</strong> 
+          <div className="p-5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-sm md:text-base text-slate-700 dark:text-slate-200 leading-relaxed">
+            <strong className="text-slate-900 dark:text-white font-bold block mb-1">Análise Explicativa:</strong> 
             {resultado.evaluation.decision_reason}
           </div>
-
-          {resultado.fraud_analysis && (
-            <div className={`p-8 rounded-2xl border text-base ${resultado.fraud_analysis.is_suspicious ? 'bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-800/60 text-red-800 dark:text-red-200' : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-200'}`}>
-              <div className="font-bold text-lg mb-2">
-                {resultado.fraud_analysis.is_suspicious ? '⚠️ Alerta de Anomalia / Fraude Detectado' : '🛡️ Triagem de Segurança: Aprovado sem Suspeitas'}
-              </div>
-              {resultado.fraud_analysis.flags.length > 0 ? (
-                <ul className="list-disc list-inside mt-2 space-y-1 text-base">
-                  {resultado.fraud_analysis.flags.map((flag, idx) => (
-                    <li key={idx}>{flag}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-1 text-slate-600 dark:text-slate-300 text-base">Nenhum indício inconsistente foi identificado pelo Isolation Forest.</p>
-              )}
-            </div>
-          )}
-
-          {resultado.next_best_action && (
-            <div className="p-8 bg-purple-50 dark:bg-purple-950/35 rounded-2xl border border-purple-200 dark:border-purple-800/40 text-base text-purple-900 dark:text-purple-200 space-y-2">
-              <span className="font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest text-sm block">Próxima Melhor Ação ({resultado.next_best_action.category})</span>
-              <h4 className="text-slate-900 dark:text-white font-bold text-lg">{resultado.next_best_action.action}</h4>
-              <p className="text-slate-700 dark:text-slate-200 text-base">{resultado.next_best_action.description}</p>
-            </div>
-          )}
         </div>
       )}
     </div>

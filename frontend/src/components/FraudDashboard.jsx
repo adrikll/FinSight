@@ -13,14 +13,14 @@ const CHART_COLORS = ['#51138c', '#38bdf8', '#fb923c', '#9f4cf1', '#37a487', '#f
 const renderCustomLegend = (props) => {
   const { payload } = props;
   return (
-    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-2">
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-2">
       {payload.map((entry, index) => (
-        <div key={`item-${index}`} className="flex items-center gap-2">
+        <div key={`item-${index}`} className="flex items-center gap-1.5">
           <span 
-            className="w-3 h-3 rounded-full inline-block shrink-0" 
+            className="w-2.5 h-2.5 rounded-full inline-block shrink-0" 
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-xs font-medium text-slate-700 dark:text-slate-200">{entry.value}</span>
+          <span className="text-[11px] font-medium text-slate-700 dark:text-slate-200">{entry.value}</span>
         </div>
       ))}
     </div>
@@ -73,14 +73,14 @@ export default function FraudDashboard() {
   return (
     <div className="space-y-6 pb-6 transition-colors">
       {/* Cabeçalho */}
-      <div className="flex justify-between items-center bg-white dark:bg-slate-900/60 p-6 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-sm transition-colors">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900/60 p-6 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-sm transition-colors">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Panorama do Ecossistema Pix, Fraudes & MED</h2>
-          <p className="text-base text-slate-600 dark:text-slate-300 mt-1">
-            Análise profunda de transações e mecanismos de ressarcimento baseados nos dados oficiais do Banco Central.
+          <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Panorama do Ecossistema Pix, Fraudes & MED</h2>
+          <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300 mt-1">
+            Análise profunda baseada nos dados oficiais do Banco Central.
           </p>
         </div>
-        <span className="px-4 py-2 bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 rounded-full text-sm font-semibold block">
+        <span className="px-3.5 py-1.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 rounded-full text-xs font-semibold">
           {loading ? 'Sincronizando' : erroApi ? 'Modo Offline' : 'Dados Oficiais Ativos'}
         </span>
       </div>
@@ -91,64 +91,28 @@ export default function FraudDashboard() {
         </div>
       )}
 
-      {/* 6 KPIs Dinâmicos com Sparklines e Deltas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-        <KpiCard 
-          icon={CreditCard} 
-          title="Volume Transacionado" 
-          value={formatarMoeda(metrics?.valores_atuais?.transacoes)} 
-          delta={metrics?.deltas?.transacoes}
-          trend={metrics?.series_kpis?.transacoes}
-        />
-        <KpiCard 
-          icon={DollarSign} 
-          title="Valor Contestado" 
-          value={formatarMoeda(metrics?.valores_atuais?.fraudes_valor)} 
-          delta={metrics?.deltas?.fraudes_valor}
-          trend={metrics?.series_kpis?.fraudes_valor}
-        />
-        <KpiCard 
-          icon={ShieldAlert} 
-          title="Total de Contestações" 
-          value={formatarNumeroInteligente(metrics?.valores_atuais?.fraudes_qtd)} 
-          delta={metrics?.deltas?.fraudes_qtd}
-          trend={metrics?.series_kpis?.fraudes_qtd}
-        />
-        <KpiCard 
-          icon={TrendingDown} 
-          title="Taxa Devolução MED" 
-          value={`${metrics?.valores_atuais?.taxa_rec ?? '--'}%`} 
-          delta={metrics?.deltas?.taxa_rec}
-          trend={metrics?.series_kpis?.taxa_rec}
-        />
-        <KpiCard 
-          icon={Lock} 
-          title="Bloqueios Cautelares Dev." 
-          value={formatarMoeda(metrics?.valores_atuais?.bloqueados)} 
-          delta={metrics?.deltas?.bloqueados}
-          trend={metrics?.series_kpis?.bloqueados}
-        />
-        <KpiCard 
-          icon={AlertTriangle} 
-          title="Residual Não Devolvido" 
-          value={formatarMoeda(metrics?.valores_atuais?.residual)} 
-          delta={metrics?.deltas?.residual}
-          trend={metrics?.series_kpis?.residual}
-        />
+      {/* 6 KPIs Dinâmicos */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+        <KpiCard icon={CreditCard} title="Volume Transacionado" value={formatarMoeda(metrics?.valores_atuais?.transacoes)} delta={metrics?.deltas?.transacoes} trend={metrics?.series_kpis?.transacoes} />
+        <KpiCard icon={DollarSign} title="Valor Contestado" value={formatarMoeda(metrics?.valores_atuais?.fraudes_valor)} delta={metrics?.deltas?.fraudes_valor} trend={metrics?.series_kpis?.fraudes_valor} />
+        <KpiCard icon={ShieldAlert} title="Total de Contestações" value={formatarNumeroInteligente(metrics?.valores_atuais?.fraudes_qtd)} delta={metrics?.deltas?.fraudes_qtd} trend={metrics?.series_kpis?.fraudes_qtd} />
+        <KpiCard icon={TrendingDown} title="Taxa Devolução MED" value={`${metrics?.valores_atuais?.taxa_rec ?? '--'}%`} delta={metrics?.deltas?.taxa_rec} trend={metrics?.series_kpis?.taxa_rec} />
+        <KpiCard icon={Lock} title="Bloqueios Cautelares Dev." value={formatarMoeda(metrics?.valores_atuais?.bloqueados)} delta={metrics?.deltas?.bloqueados} trend={metrics?.series_kpis?.bloqueados} />
+        <KpiCard icon={AlertTriangle} title="Residual Não Devolvido" value={formatarMoeda(metrics?.valores_atuais?.residual)} delta={metrics?.deltas?.residual} trend={metrics?.series_kpis?.residual} />
       </div>
 
       {/* 6 Gráficos organizados em 3 Colunas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         
         {/* Gráfico 1: Evolução Financeira */}
-        <div className="bg-white dark:bg-slate-900/80 p-6 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
+        <div className="bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Evolução Financeira: Geral vs. Fraudes</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Montante transacionado e contestado (R$)</p>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Evolução Financeira</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-4">Montante transacionado e contestado (R$)</p>
           </div>
-          <div className="h-[260px] w-full">
+          <div className="h-[240px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={metrics?.evolucao_temporal || []} margin={{ top: 10, right: 15, left: 15, bottom: 0 }}>
+              <AreaChart data={metrics?.evolucao_temporal || []} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorTrans" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.6}/>
@@ -160,40 +124,36 @@ export default function FraudDashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke={SLATE_GRID} vertical={false} />
-                <XAxis dataKey="data" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={formatarMoeda} width={65} />
+                <XAxis dataKey="data" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatarMoeda} width={50} />
                 <Tooltip 
                   cursor={false}
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold', fontSize: '14px', marginBottom: '6px' }}
-                  formatter={(val, name) => [formatarMoeda(val), name]}
-                  itemStyle={{ color: '#c084fc', fontSize: '13px', padding: 0 }}
-                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)', color: '#f8fafc' }} 
+                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, color: '#f8fafc', fontSize: '12px' }} 
                 />
-                <Area type="monotone" dataKey="valor_transacoes" name="Volume Geral" stroke="#38bdf8" strokeWidth={2.5} fill="url(#colorTrans)" />
-                <Area type="monotone" dataKey="valor_envolvido" name="Contestado" stroke="#a855f7" strokeWidth={2.5} fill="url(#colorFraud)" />
+                <Area type="monotone" dataKey="valor_transacoes" name="Volume Geral" stroke="#38bdf8" strokeWidth={2} fill="url(#colorTrans)" />
+                <Area type="monotone" dataKey="valor_envolvido" name="Contestado" stroke="#a855f7" strokeWidth={2} fill="url(#colorFraud)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
             Liquidez e risco temporal
           </div>
         </div>
 
         {/* Gráfico 2: Top Regiões Pagadoras */}
-        <div className="bg-white dark:bg-slate-900/80 p-6 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
+        <div className="bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Top Regiões Pagadoras</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">Concentração regional do volume</p>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Top Regiões Pagadoras</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-2">Concentração regional do volume</p>
           </div>
-          <div className="h-[240px] w-full flex items-center justify-center">
+          <div className="h-[220px] w-full flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+              <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <Pie 
                   data={metrics?.por_regiao || []} 
                   dataKey="valor" 
                   nameKey="regiao" 
-                  outerRadius={75} 
-                  innerRadius={0}
+                  outerRadius={65} 
                   label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                   labelLine={false}
                 >
@@ -203,34 +163,32 @@ export default function FraudDashboard() {
                 </Pie>
                 <Tooltip 
                   formatter={(val) => [formatarMoeda(val), "Volume"]}
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold', fontSize: '14px', marginBottom: '6px' }}
-                  itemStyle={{ color: '#c084fc', fontSize: '13px', padding: 0 }}
-                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)', color: '#f8fafc' }} 
+                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, color: '#f8fafc', fontSize: '12px' }} 
                 />
                 <Legend content={renderCustomLegend} />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
-            Participação por região geográfica
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
+            Participação por região
           </div>
         </div>
 
         {/* Gráfico 3: Motivos de Não Devolução (MED) */}
-        <div className="bg-white dark:bg-slate-900/80 p-6 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
+        <div className="bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Motivos de Não Devolução (MED)</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">Fatores que impediram o ressarcimento</p>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Motivos de Não Devolução</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-2">Fatores de impedimento</p>
           </div>
-          <div className="h-[240px] w-full flex items-center justify-center">
+          <div className="h-[220px] w-full flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+              <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                 <Pie 
                   data={metrics?.motivos_nao_devolucao || []} 
                   dataKey="valor" 
                   nameKey="motivo" 
-                  innerRadius={45} 
-                  outerRadius={75} 
+                  innerRadius={35} 
+                  outerRadius={65} 
                   paddingAngle={3}
                   label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                   labelLine={false}
@@ -240,70 +198,62 @@ export default function FraudDashboard() {
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(val) => [formatarMoeda(val), "Valor Restante"]}
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold', fontSize: '14px', marginBottom: '6px' }}
-                  itemStyle={{ color: '#c084fc', fontSize: '13px', padding: 0 }}
-                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)', color: '#f8fafc' }} 
+                  formatter={(val) => [formatarMoeda(val), "Restante"]}
+                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, color: '#f8fafc', fontSize: '12px' }} 
                 />
                 <Legend content={renderCustomLegend} />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
-            Gargalos operacionais do mecanismo
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
+            Gargalos operacionais
           </div>
         </div>
 
         {/* Gráfico 4: Comparativo de Contestações */}
-        <div className="bg-white dark:bg-slate-900/80 p-6 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
+        <div className="bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Comparativo de Contestações</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Aceitas vs. Rejeitadas ao longo do tempo</p>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Comparativo de Contestações</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-4">Aceitas vs. Rejeitadas</p>
           </div>
-          <div className="h-[260px] w-full">
+          <div className="h-[240px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={metrics?.evolucao_temporal || []} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
+              <LineChart data={metrics?.evolucao_temporal || []} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={SLATE_GRID} vertical={false} />
-                <XAxis dataKey="data" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={formatarEixoYContestacoes} width={50} />
+                <XAxis dataKey="data" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatarEixoYContestacoes} width={40} />
                 <Tooltip 
                   cursor={false}
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold', fontSize: '14px', marginBottom: '6px' }}
-                  formatter={(val, name) => [val.toLocaleString('pt-BR'), name]}
-                  itemStyle={{ color: '#c084fc', fontSize: '13px', padding: 0 }}
-                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)', color: '#f8fafc' }} 
+                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, color: '#f8fafc', fontSize: '12px' }} 
                 />
-                <Legend wrapperStyle={{ fontSize: '13px', paddingTop: '8px' }} />
-                <Line type="monotone" dataKey="quantidade_fraudes" name="Aceitas" stroke="#a855f7" strokeWidth={2.5} dot={false} />
-                <Line type="monotone" dataKey="fraudes_rejeitadas" name="Rejeitadas" stroke="#fb923c" strokeWidth={2.5} dot={false} />
+                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} />
+                <Line type="monotone" dataKey="quantidade_fraudes" name="Aceitas" stroke="#a855f7" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="fraudes_rejeitadas" name="Rejeitadas" stroke="#fb923c" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
-            Dinâmica de aprovação de contestações
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
+            Dinâmica de aprovação
           </div>
         </div>
 
         {/* Gráfico 5: Volume por Faixa Etária */}
-        <div className="bg-white dark:bg-slate-900/80 p-6 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
+        <div className="bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Volume por Faixa Etária</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Montante transacionado por perfil de idade</p>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Volume por Faixa Etária</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-4">Montante por perfil de idade</p>
           </div>
-          <div className="h-[260px] w-full">
+          <div className="h-[240px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart layout="vertical" data={metrics?.por_faixa_etaria || []} margin={{ top: 5, right: 15, bottom: 5, left: 0 }}>
+              <BarChart layout="vertical" data={metrics?.por_faixa_etaria || []} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={SLATE_GRID} horizontal={false} />
-                <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={formatarMoeda} />
-                <YAxis type="category" dataKey="faixa" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} width={90} />
+                <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatarMoeda} />
+                <YAxis type="category" dataKey="faixa" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} width={80} />
                 <Tooltip 
                   cursor={false}
-                  formatter={(val) => [formatarMoeda(val), "Volume"]}
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold', fontSize: '14px', marginBottom: '6px' }}
-                  itemStyle={{ color: '#c084fc', fontSize: '13px', padding: 0 }}
-                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)', color: '#f8fafc' }} 
+                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, color: '#f8fafc', fontSize: '12px' }} 
                 />
-                <Bar dataKey="valor" radius={[0, 6, 6, 0]}>
+                <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
                   {(metrics?.por_faixa_etaria || []).map((_, index) => (
                     <Cell key={`cell-fx-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
@@ -311,31 +261,28 @@ export default function FraudDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
-            Distribuição demográfica de pagadores
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
+            Distribuição demográfica
           </div>
         </div>
 
         {/* Gráfico 6: Natureza da Transação Pix */}
-        <div className="bg-white dark:bg-slate-900/80 p-6 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
+        <div className="bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Natureza da Transação Pix</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Classificação dos fluxos financeiros</p>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Natureza da Transação Pix</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-4">Classificação dos fluxos</p>
           </div>
-          <div className="h-[260px] w-full">
+          <div className="h-[240px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={metrics?.por_natureza || []} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
+              <BarChart data={metrics?.por_natureza || []} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={SLATE_GRID} vertical={false} />
-                <XAxis dataKey="natureza" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={formatarMoeda} width={65} />
+                <XAxis dataKey="natureza" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatarMoeda} width={50} />
                 <Tooltip 
                   cursor={false}
-                  formatter={(val) => [formatarMoeda(val), "Volume"]}
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold', fontSize: '14px', marginBottom: '6px' }}
-                  itemStyle={{ color: '#c084fc', fontSize: '13px', padding: 0 }}
-                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)', color: '#f8fafc' }} 
+                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, color: '#f8fafc', fontSize: '12px' }} 
                 />
-                <Bar dataKey="valor" radius={[6, 6, 0, 0]}>
+                <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
                   {(metrics?.por_natureza || []).map((_, index) => (
                     <Cell key={`cell-nat-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
@@ -343,8 +290,8 @@ export default function FraudDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-sm text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
-            Análise estrutural de pagamentos
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 text-center font-medium mt-4">
+            Análise estrutural
           </div>
         </div>
 
