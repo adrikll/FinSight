@@ -25,39 +25,41 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen, is
 
       <aside className={`
         fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 
-        flex flex-col justify-between p-4 transition-all duration-300 ease-in-out md:relative md:translate-x-0
-        ${isOpen ? 'translate-x-0 shadow-2xl w-64' : '-translate-x-full md:translate-x-0'}
-        ${isCollapsed ? 'md:w-20' : 'md:w-64'}
+        flex flex-col justify-between p-3.5 transition-all duration-300 ease-in-out md:relative md:translate-x-0
+        ${isOpen ? 'translate-x-0 shadow-2xl w-56' : '-translate-x-full md:translate-x-0'}
+        ${isCollapsed ? 'md:w-20' : 'md:w-56'}
       `}>
         <div>
-          {/* Cabeçalho dinâmico: Se recolhido, centraliza o botão de expandir; se aberto, mostra logo completa e botão de recolher */}
+          {/* Cabeçalho dinâmico*/}
           {isCollapsed ? (
-            <div className="hidden md:flex flex-col items-center gap-4 mb-8">
+            <div className="hidden md:flex flex-col items-center gap-3 mb-6">
               <button
                 onClick={() => setIsCollapsed(false)}
                 className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors shadow-sm"
                 title="Expandir Menu"
               >
-                <ChevronRight size={20} />
+                <ChevronRight size={18} />
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between mb-8 px-1">
-              <Logo />
+            <div className="flex items-center justify-between mb-6 px-1 gap-2">
+              <div className="overflow-hidden">
+                <Logo />
+              </div>
               {/* Botão fechar mobile */}
               <button 
                 onClick={() => setIsOpen(false)} 
-                className="md:hidden text-slate-500 hover:text-slate-800 dark:hover:text-white p-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-bold"
+                className="md:hidden text-slate-500 hover:text-slate-800 dark:hover:text-white p-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold shrink-0"
               >
                 ✕
               </button>
               {/* Botão recolher desktop */}
               <button
                 onClick={() => setIsCollapsed(true)}
-                className="hidden md:flex p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                className="hidden md:flex p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors shrink-0"
                 title="Recolher Menu"
               >
-                <ChevronLeft size={18} />
+                <ChevronLeft size={16} />
               </button>
             </div>
           )}
@@ -74,13 +76,13 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen, is
                     setIsOpen(false);
                   }}
                   title={isCollapsed ? item.label : ''}
-                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-medium transition-all ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
                     isActive
                       ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
                   } ${isCollapsed ? 'md:justify-center md:px-2' : ''}`}
                 >
-                  <Icon size={18} className="shrink-0" />
+                  <Icon size={17} className="shrink-0" />
                   <span className={`${isCollapsed ? 'md:hidden' : 'block'} truncate`}>{item.label}</span>
                 </button>
               );
@@ -88,19 +90,19 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen, is
           </nav>
         </div>
 
-        <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+        <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
           <button
             onClick={toggleTheme}
             title="Alternar Tema"
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700/50 ${
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700/50 ${
               isCollapsed ? 'md:justify-center md:px-2' : ''
             }`}
           >
             <span className="flex items-center gap-2 truncate">
-              {theme === 'dark' ? <Sun size={16} className="text-amber-500 shrink-0" /> : <Moon size={16} className="text-purple-500 shrink-0" />}
+              {theme === 'dark' ? <Sun size={15} className="text-amber-500 shrink-0" /> : <Moon size={15} className="text-purple-500 shrink-0" />}
               <span className={`${isCollapsed ? 'md:hidden' : 'block'} truncate`}>{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>
             </span>
-            <span className={`${isCollapsed ? 'md:hidden' : 'block'} w-2 h-2 rounded-full shrink-0 ${theme === 'dark' ? 'bg-amber-500' : 'bg-purple-500'}`}></span>
+            <span className={`${isCollapsed ? 'md:hidden' : 'block'} w-1.5 h-1.5 rounded-full shrink-0 ${theme === 'dark' ? 'bg-amber-500' : 'bg-purple-500'}`}></span>
           </button>
         </div>
       </aside>

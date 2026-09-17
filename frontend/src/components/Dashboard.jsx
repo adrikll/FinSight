@@ -7,25 +7,62 @@ import {
 import KpiCard from './KpiCard';
 import MapaBrasil from './MapaBrasil';
 import API_URL from '../api';
+import { useTheme } from '../context/ThemeContext';
 
 const SLATE_GRID = '#1e293b';
 const DONUT_COLORS = ['#4b1383', '#38bdf8']; 
-const BAR_COLORS = ['#4b1383', '#38bdf8', '#8b5cf6', '#06b6d4', '#6366f1'];
+const BAR_COLORS = [
+  '#7c3aed',
+  '#f97316',
+  '#06b6d4', 
+  '#10b981', 
+  '#c084fc', 
+  '#38bdf8',
+  '#2dd4bf', 
+  '#9333ea',
+  '#0ea5e9', 
+  '#34d399', 
+  '#a855f7', 
+  '#22d3ee', 
+  '#059669'  
+];
 const METRICAS_MAPA = [
   { key: 'carteira', label: 'Carteira' },
   { key: 'taxa_inadimplencia', label: 'Inadimplência' },
   { key: 'taxa_ativo_problematico', label: 'Ativos' },
 ];
 
-export default function Dashboard() {
-  const [metrics, setMetrics] = useState(null);
-  const [indicadores, setIndicadores] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function Dashboard({ dadosCache, macroCache }) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
+  const tooltipStyle = {
+    background: isDark ? '#0f172a' : '#ffffff',
+    border: `1px solid ${isDark ? '#1e293b' : '#e2e8f0'}`,
+    borderRadius: 8,
+    color: isDark ? '#f8fafc' : '#0f172a',
+    fontSize: '12px',
+    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+  };
+
+  const [metrics, setMetrics] = useState(dadosCache || null);
+  const [indicadores, setIndicadores] = useState(macroCache || null);
+  const [loading, setLoading] = useState(!dadosCache || !macroCache);
   const [erroApi, setErroApi] = useState(false);
   const [metricaMapa, setMetricaMapa] = useState('carteira');
   const [ufSelecionada, setUfSelecionada] = useState('SP');
 
   useEffect(() => {
+    if (dadosCache && macroCache) {
+      setMetrics(dadosCache);
+      setIndicadores(macroCache);
+      if (dadosCache.mapa_uf && dadosCache.mapa_uf.length > 0 && !ufSelecionada) {
+        setUfSelecionada(dadosCache.mapa_uf[0].uf);
+      }
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const urlMetrics = `${API_URL}/api/dashboard-metrics`; 
     const urlMacro = `${API_URL}/api/macro/indicadores`;
@@ -47,7 +84,7 @@ export default function Dashboard() {
       })
       .catch(() => setErroApi(true))
       .finally(() => setLoading(false));
-  }, []);
+  }, [dadosCache, macroCache]);
 
   const formatarMoeda = (valor) => {
     if (valor === undefined || valor === null) return "R$ 0,0";
@@ -66,7 +103,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 pb-6 transition-colors">
-      {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900/60 p-6 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-sm transition-colors">
         <div>
           <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Panorama Nacional de Crédito</h2>
@@ -92,7 +128,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Cartões Macro */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <KpiCard icon={TrendingUp} title="Carteira de Crédito" value={formatarMoeda(indicadores?.carteira_total?.valor_atual)}
                    delta={indicadores?.carteira_total?.delta} trend={indicadores?.carteira_total?.serie_recente} />
@@ -108,9 +143,7 @@ export default function Dashboard() {
                    delta={indicadores?.desocupacao?.delta} deltaSufixo=" p.p." deltaInvertido trend={indicadores?.desocupacao?.serie_recente} />
       </div>
 
-      {/* Linha Superior: 3 Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Gráfico 1: Evolução do Crédito */}
         <div className="lg:col-span-6 bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Evolução do Crédito</h3>
@@ -130,12 +163,13 @@ export default function Dashboard() {
                 <YAxis yAxisId="left" domain={['auto', 'auto']} tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={formatarMoeda} width={55} />
                 <YAxis yAxisId="right" orientation="right" domain={['auto', 'auto']} tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
                 <Tooltip 
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}
-                  formatter={(value, name) => [
-                    name === "Inadimplência Total %" ? `${value}%` : formatarMoeda(value),
-                    name
-                  ]}
-                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, color: '#f8fafc', fontSize: '12px' }} 
+                  labelStyle={{ color: isDark ? '#ffffff' : '#0f172a', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}
+                  formatter={(value, name) => {
+                    const cor = name === "Inadimplência Total %" ? '#fb923c' : '#a855f7';
+                    const textoFormatado = name === "Inadimplência Total %" ? `${value}%` : formatarMoeda(value);
+                    return [<span style={{ color: cor, fontWeight: 600 }}>{textoFormatado}</span>, <span style={{ color: cor }}>{name}</span>];
+                  }}
+                  contentStyle={tooltipStyle} 
                 />
                 <Area yAxisId="left" type="monotone" dataKey="carteira_total" name="Carteira Total" stroke="#4b1383" strokeWidth={2} fill="url(#colorCarteiraTotal)" dot={false} />
                 <Line yAxisId="right" type="monotone" dataKey="inadimplencia_total" name="Inadimplência Total %" stroke="#fb923c" strokeWidth={2} dot={false} />
@@ -147,7 +181,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Gráfico 2: Ranking de Modalidades */}
         <div className="lg:col-span-4 bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Ranking de Modalidades</h3>
@@ -161,8 +194,10 @@ export default function Dashboard() {
                 <YAxis type="category" dataKey="modalidade" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} width={95} tickFormatter={(val) => val && val.length > 14 ? `${val.substring(0, 12)}...` : val} />
                 <Tooltip 
                   cursor={false} 
+                  labelStyle={{ color: isDark ? '#ffffff' : '#0f172a', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}
+                  itemStyle={{ color: '#a855f7', fontSize: '12px', fontWeight: '600' }}
                   formatter={(value) => [formatarMoeda(value), "Valor"]}
-                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, color: '#f8fafc', fontSize: '12px' }} 
+                  contentStyle={tooltipStyle} 
                 />
                 <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
                   {(metrics?.distribuicao_modalidade || []).map((_, index) => (
@@ -177,7 +212,6 @@ export default function Dashboard() {
           </div>
         </div>
         
-        {/* Gráfico 3: Perfil PF vs PJ */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">PF vs PJ</h3>
@@ -192,8 +226,10 @@ export default function Dashboard() {
                     {pjPfPie.map((_, i) => <Cell key={i} fill={DONUT_COLORS[i]} />)}
                   </Pie>
                   <Tooltip 
+                    labelStyle={{ color: isDark ? '#ffffff' : '#0f172a', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}
+                    itemStyle={{ color: '#a855f7', fontSize: '12px', fontWeight: '600' }}
                     formatter={(value, name) => [formatarMoeda(value), name === 'Pessoa Física' ? 'Carteira PF' : 'Carteira PJ']}
-                    contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, color: '#f8fafc', fontSize: '12px' }} 
+                    contentStyle={tooltipStyle} 
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -224,9 +260,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Linha Inferior: 2 Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Gráfico 4: Ativos Problemáticos */}
         <div className="lg:col-span-6 bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Ativos Problemáticos (PF vs PJ)</h3>
@@ -239,8 +273,12 @@ export default function Dashboard() {
                 <XAxis dataKey="data" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis domain={['auto', 'auto']} tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} width={40} />
                 <Tooltip 
-                  formatter={(value) => [`${value}%`, "Taxa"]}
-                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, color: '#f8fafc', fontSize: '12px' }} 
+                  labelStyle={{ color: isDark ? '#ffffff' : '#0f172a', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}
+                  formatter={(value, name) => {
+                    const cor = name === "Pessoa Jurídica (PJ)" ? '#38bdf8' : '#a855f7';
+                    return [<span style={{ color: cor, fontWeight: 600 }}>{value}%</span>, <span style={{ color: cor }}>{name}</span>];
+                  }}
+                  contentStyle={tooltipStyle} 
                 />
                 <Line type="monotone" dataKey="PF" name="Pessoa Física (PF)" stroke="#4b1383" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="PJ" name="Pessoa Jurídica (PJ)" stroke="#38bdf8" strokeWidth={2} dot={false} />
@@ -252,7 +290,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Gráfico 5: Mapa Geográfico */}
         <div className="lg:col-span-6 bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
             <div>

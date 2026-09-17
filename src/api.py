@@ -111,10 +111,10 @@ def predict_credit(proposta: PropostaCadastralRequest):
             pd_score=pd_score,
             renda_mensal=proposta.monthlyincome,
             valor_solicitado=proposta.loanamount,
-            threshold=0.3814  # Threshold seguro validado do campeão
+            threshold=0.4618
         )
 
-        # Avaliação de Risco de Fraude (Fraud Engine)
+        # Avaliação de Risco de Fraude
         analise_fraude = evaluate_fraud_risk(
             loan_amnt=proposta.loanamount,
             annual_inc=proposta.annualincome,
@@ -160,7 +160,6 @@ def get_dashboard_metrics():
         conn = psycopg2.connect(POSTGRES_URL)
         cur = conn.cursor()
         
-        # Totais do portfólio
         cur.execute("""
             SELECT 
                 COALESCE(SUM(carteira_ativa), 0), 
@@ -678,10 +677,88 @@ def get_mlflow_model_metrics():
             
         runs_data = sorted(runs_data, key=lambda x: x["auc"], reverse=True)
         runs_data[0]["status"] = "Produção"
+        campeao_atual = runs_data[0]
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import roc_curve, confusion_matrix
+        from src.prepare_loan_dataset import carregar_dataset_loan
+        from src.feature_engineering import feature_engineering_avancada
+
+        raw_df = carregar_dataset_loan()
+        df = feature_engineering_avancada(raw_df)
+        
+        if 'monthlydebtpayments' in df.columns and 'monthlyincome' in df.columns:
+            df['comprometimento_renda'] = df['monthlydebtpayments'] / (df['monthlyincome'] + 1e-5)
+        if 'totalassets' in df.columns and 'totalliabilities' in df.columns:
+            df['patrimonio_liquido_calc'] = df['totalassets'] - df.get('totalliabilities', 0)
+        if 'loanamount' in df.columns and 'annualincome' in df.columns:
+            df['emprestimo_vs_renda_anual'] = df['loanamount'] / (df['annualincome'] + 1e-5)
+        if 'savingsaccountbalance' in df.columns and 'checkingaccountbalance' in df.columns and 'monthlydebtpayments' in df.columns:
+            soma_saldos = df['savingsaccountbalance'] + df['checkingaccountbalance']
+            df['cobertura_liquidez'] = soma_saldos / (df['monthlydebtpayments'] + 1e-5)
+
+        target_candidates = ["loanapproved", "loan_approved", "loan_status"]
+        target_col = next((col for col in target_candidates if col in raw_df.columns), None)
+        
+        y = pd.to_numeric(raw_df[target_col], errors="coerce").fillna(0).astype(int)
+        X = df.drop(columns=[target_col, "loanapproved", "loan_approved", "loan_status"], errors="ignore")
+
+        _, X_test, _, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+        y_proba = pipeline.predict_proba(X_test)[:, 1]
+        
+        # Curva ROC
+        fpr, tpr, thresholds = roc_curve(y_test, y_proba)
+        from numpy import interp
+        fpr_uniforme = np.linspace(0, 1, 50)
+        tpr_uniforme = interp(fpr_uniforme, fpr, tpr)
+
+        roc_curve_data = []
+        for f, t in zip(fpr_uniforme, tpr_uniforme):
+            roc_curve_data.append({
+                "fpr": float(f), 
+                "tpr": float(t), 
+                "diagonal": float(f)
+            })
+            
+        if roc_curve_data:
+            roc_curve_data[0]["fpr"] = 0.0
+            roc_curve_data[0]["tpr"] = 0.0
+            roc_curve_data[-1]["fpr"] = 1.0
+            roc_curve_data[-1]["tpr"] = 1.0
+
+        # Matriz de Confusão
+        best_th = campeao_atual.get("best_threshold", 0.5)
+        y_pred_optimal = (y_proba >= best_th).astype(int)
+        tn, fp, fn, tp = confusion_matrix(y_test, y_pred_optimal).ravel()
+
+        conf_matrix = {
+            "tp": int(tp),
+            "fp": int(fp),
+            "fn": int(fn),
+            "tn": int(tn)
+        }
+
+        feature_importances = []
+        internal_model = None
+        if hasattr(pipeline, "model_xgb") and hasattr(pipeline.model_xgb, "named_steps"):
+            internal_model = pipeline.model_xgb.named_steps.get("model", None)
+        elif hasattr(pipeline, "model_cat") and hasattr(pipeline.model_cat, "named_steps"):
+            internal_model = pipeline.model_cat.named_steps.get("model", None)
+        
+        if internal_model and hasattr(internal_model, "feature_importances_"):
+            importances = internal_model.feature_importances_
+            feat_names = list(X.columns)
+            if len(importances) == len(feat_names):
+                sorted_feats = sorted(zip(feat_names, importances), key=lambda x: x[1], reverse=True)[:10]
+                feature_importances = [{"feature": str(f[0]), "importance": float(f[1])} for f in sorted_feats]
 
         return {
-            "campeao": runs_data[0],
-            "comparativo": runs_data
+            "campeao": campeao_atual,
+            "comparativo": runs_data,
+            "roc_curve": roc_curve_data,
+            "confusion_matrix": conf_matrix,
+            "feature_importances": feature_importances
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
