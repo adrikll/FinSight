@@ -29,7 +29,7 @@
 
 <p align="center">
   <a href="https://finsight-analysis.vercel.app" target="_blank">
-    <img src="imgs/navegacao_finsight.gif" alt="FinSight em Ação" width="100%" />
+    <img src="imgs/gif_finsight.gif" alt="FinSight em Ação" width="100%" />
   </a>
 </p>
 
@@ -71,7 +71,7 @@ O ecossistema do FinSight é dividido em quatro módulos principais, alimentados
 O projeto adota uma arquitetura em nuvem desacoplada e escalável:
 
 <p align="center">
-  <img src="imgs/arquitetura_dados.png" alt="Arquitetura dos Dados" width="450"/>
+  <img src="imgs/arquitetura_dados.png" alt="FinSight em Ação" width="100%" />
 </p>
 
 | Camada | Componentes | Responsabilidade |
