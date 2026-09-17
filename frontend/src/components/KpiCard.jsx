@@ -1,7 +1,21 @@
 import React from 'react';
 import { ResponsiveContainer, AreaChart, Area, YAxis, Tooltip } from 'recharts';
+import { useTheme } from '../context/ThemeContext';
 
 export default function KpiCard({ icon: Icon, title, value, delta, deltaSufixo, deltaInvertido, trend }) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
+  const tooltipStyle = {
+    background: isDark ? '#0f172a' : '#ffffff',
+    border: `1px solid ${isDark ? '#1e293b' : '#e2e8f0'}`,
+    borderRadius: 8,
+    color: isDark ? '#f8fafc' : '#0f172a',
+    fontSize: '11px',
+    padding: '6px 10px',
+    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+  };
+
   const positivo = delta !== undefined && delta !== null && (deltaInvertido ? delta <= 0 : delta >= 0);
   const safeId = title ? title.replace(/[^a-zA-Z0-9]/g, '') : 'kpi';
   
@@ -45,7 +59,7 @@ export default function KpiCard({ icon: Icon, title, value, delta, deltaSufixo, 
               </defs>
               <YAxis domain={[domainMin, domainMax]} hide />
               <Tooltip 
-                contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, fontSize: 11, padding: '6px 10px' }}
+                contentStyle={tooltipStyle}
                 labelStyle={{ color: '#a855f7', fontSize: 11, fontWeight: 'bold', marginBottom: 2 }}
                 labelFormatter={(label, payload) => {
                   if (payload && payload.length > 0 && payload[0].payload.data) {

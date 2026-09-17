@@ -105,7 +105,7 @@ export default function Dashboard({ dadosCache, macroCache }) {
     <div className="space-y-6 pb-6 transition-colors">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900/60 p-6 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-sm transition-colors">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Panorama Nacional de Crédito</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Panorama Crédito</h2>
           <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300 mt-1">
             Fonte dos dados: Amostra de {metrics?.total_registros_agregados?.toLocaleString('pt-BR')} registros do SCR.data.
           </p>
@@ -181,6 +181,7 @@ export default function Dashboard({ dadosCache, macroCache }) {
           </div>
         </div>
 
+        {/* RANKING DE MODALIDADES*/}
         <div className="lg:col-span-4 bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Ranking de Modalidades</h3>
@@ -195,8 +196,14 @@ export default function Dashboard({ dadosCache, macroCache }) {
                 <Tooltip 
                   cursor={false} 
                   labelStyle={{ color: isDark ? '#ffffff' : '#0f172a', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}
-                  itemStyle={{ color: '#a855f7', fontSize: '12px', fontWeight: '600' }}
-                  formatter={(value) => [formatarMoeda(value), "Valor"]}
+                  formatter={(value, name, item) => {
+                    const barraIndex = metrics?.distribuicao_modalidade?.findIndex(m => m.valor === item.value) ?? 0;
+                    const corDinamica = BAR_COLORS[barraIndex % BAR_COLORS.length];
+                    return [
+                      <span style={{ color: corDinamica, fontWeight: 'bold' }}>{formatarMoeda(value)}</span>,
+                      <span style={{ color: corDinamica }}>Valor</span>
+                    ];
+                  }}
                   contentStyle={tooltipStyle} 
                 />
                 <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
@@ -212,6 +219,7 @@ export default function Dashboard({ dadosCache, macroCache }) {
           </div>
         </div>
         
+        {/* PF VS PJ */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900/80 p-5 rounded-lg border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between shadow-sm transition-colors">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">PF vs PJ</h3>
@@ -227,8 +235,15 @@ export default function Dashboard({ dadosCache, macroCache }) {
                   </Pie>
                   <Tooltip 
                     labelStyle={{ color: isDark ? '#ffffff' : '#0f172a', fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}
-                    itemStyle={{ color: '#a855f7', fontSize: '12px', fontWeight: '600' }}
-                    formatter={(value, name) => [formatarMoeda(value), name === 'Pessoa Física' ? 'Carteira PF' : 'Carteira PJ']}
+                    formatter={(value, name, item) => {
+                      const fatiaIndex = pjPfPie.findIndex(p => p.name === item.name);
+                      const corDinamica = DONUT_COLORS[fatiaIndex >= 0 ? fatiaIndex : 0];
+                      const rotulo = name === 'Pessoa Física' ? 'Carteira PF' : 'Carteira PJ';
+                      return [
+                        <span style={{ color: corDinamica, fontWeight: 'bold' }}>{formatarMoeda(value)}</span>,
+                        <span style={{ color: corDinamica }}>{rotulo}</span>
+                      ];
+                    }}
                     contentStyle={tooltipStyle} 
                   />
                 </PieChart>
@@ -280,7 +295,7 @@ export default function Dashboard({ dadosCache, macroCache }) {
                   }}
                   contentStyle={tooltipStyle} 
                 />
-                <Line type="monotone" dataKey="PF" name="Pessoa Física (PF)" stroke="#4b1383" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="PF" name="Pessoa Física (PF)" stroke="#9045db" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="PJ" name="Pessoa Jurídica (PJ)" stroke="#38bdf8" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>

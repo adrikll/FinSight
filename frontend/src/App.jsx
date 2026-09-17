@@ -54,8 +54,8 @@ export default function App() {
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-slate-100 gap-4">
         <RefreshCw className="w-10 h-10 animate-spin text-purple-500" />
         <div className="text-center space-y-1">
-          <h2 className="text-lg font-semibold">Aquecendo o Servidor e Sincronizando o FinSight...</h2>
-          <p className="text-xs text-slate-400">Isso pode levar alguns segundos caso o container no Render esteja iniciando.</p>
+          <h2 className="text-lg font-semibold">Sincronizando Dados e Modelos...</h2>
+          <p className="text-xs text-slate-400">Isso pode levar alguns segundos.</p>
         </div>
       </div>
     );
