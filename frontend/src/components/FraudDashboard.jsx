@@ -114,7 +114,7 @@ export default function FraudDashboard({ dadosCache }) {
     <div className="space-y-6 pb-6 transition-colors">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900/60 p-6 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-sm transition-colors">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Panorama do Ecossistema Pix, Fraudes & MED</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Panorama do Ecossistema Pix, Fraudes e MED</h2>
           <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300 mt-1">
             Análise profunda baseada nos dados oficiais do Banco Central.
           </p>

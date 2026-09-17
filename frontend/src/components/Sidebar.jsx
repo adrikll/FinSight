@@ -7,8 +7,8 @@ export default function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen, is
   const { theme, toggleTheme } = useTheme();
 
   const menuItems = [
-    { id: 'dashboard', label: 'Panorama Nacional', icon: LayoutDashboard },
-    { id: 'fraude', label: 'Monitor Pix e Fraudes', icon: AlertOctagon },
+    { id: 'dashboard', label: 'Panorama Crédito', icon: LayoutDashboard },
+    { id: 'fraude', label: 'Panorama Pix', icon: AlertOctagon },
     { id: 'credito', label: 'Simulador de Crédito', icon: Calculator },
     { id: 'risco', label: 'Governança de IA', icon: ShieldCheck },
   ];

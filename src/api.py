@@ -22,14 +22,13 @@ from src.nba_engine import determine_next_best_action
 # Configura o MLflow para usar o PostgreSQL da Azure
 mlflow_tracking_uri = os.getenv("POSTGRES_URL")
 if mlflow_tracking_uri and mlflow_tracking_uri.startswith("postgresql://"):
-  
-  mlflow_tracking_uri = mlflow_tracking_uri.replace(
-      "postgresql://", "postgresql+psycopg2://"
-  )
+    mlflow_tracking_uri = mlflow_tracking_uri.replace(
+        "postgresql://", "postgresql+psycopg2://"
+    )
 else:
-  mlflow_tracking_uri = os.getenv(
-      "MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"
-  )
+    mlflow_tracking_uri = os.getenv(
+        "MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"
+    )
 
 mlflow.set_tracking_uri(mlflow_tracking_uri)
 
@@ -121,7 +120,7 @@ def predict_credit(proposta: PropostaCadastralRequest):
             monthly_debts=proposta.monthlydebtpayments
         )
 
-        # Próxima Melhor Ação Comercial (NBA Engine)
+        # Próxima Melhor Ação Comercial
         dti_calculado = (proposta.monthlydebtpayments / (proposta.monthlyincome + 1e-5)) * 100
         nba_recomendacao = determine_next_best_action(
             annual_inc=proposta.annualincome,
@@ -280,7 +279,6 @@ def get_pix_fraud_dashboard_metrics():
         conn = psycopg2.connect(POSTGRES_URL)
         cur = conn.cursor()
         
-        # Função para converter '202512' em 'Dez/25'
         def formatar_anomes(anomes_str):
             if not anomes_str or len(str(anomes_str)) != 6:
                 return str(anomes_str)
@@ -290,7 +288,6 @@ def get_pix_fraud_dashboard_metrics():
             mes = str(anomes_str)[4:6]
             return f"{meses.get(mes, mes)}/{ano}"
 
-        # Totais Gerais
         cur.execute("""
             SELECT 
                 COALESCE(SUM(valorpixcontestadosaceitos), 0), 
@@ -309,7 +306,6 @@ def get_pix_fraud_dashboard_metrics():
         """)
         valor_transacoes_geral, qtd_transacoes_geral = cur.fetchone()
 
-        # Evolução Temporal (Geral vs Fraudes)
         cur.execute("""
             SELECT f.anomes, 
                    COALESCE(SUM(f.valorpixcontestadosaceitos), 0), 
@@ -335,12 +331,10 @@ def get_pix_fraud_dashboard_metrics():
                 "fraudes_rejeitadas": int(r[5])
             })
 
-        # Séries temporais completas para os Sparklines e Deltas dos KPIs
         serie_transacoes = [{"data": r["data"], "valor": r["valor_transacoes"]} for r in evolucao_temporal]
         serie_fraudes_valor = [{"data": r["data"], "valor": r["valor_envolvido"]} for r in evolucao_temporal]
         serie_fraudes_qtd = [{"data": r["data"], "valor": r["quantidade_fraudes"]} for r in evolucao_temporal]
         
-        # Taxa de Devolução MED agrupada mês a mês para refletir a variação real
         cur.execute("""
             SELECT anomes, COALESCE(AVG(percentualdedevolucao), 0)
             FROM pix_fraudes_historica
@@ -352,7 +346,6 @@ def get_pix_fraud_dashboard_metrics():
         serie_bloqueados = [{"data": r["data"], "valor": round(r["valor_envolvido"] * 0.4, 2)} for r in evolucao_temporal]
         serie_residual = [{"data": r["data"], "valor": round(r["valor_envolvido"] * 0.3, 2)} for r in evolucao_temporal]
 
-        # Função para calcular o delta percentual (último mês vs penúltimo mês)
         def calcular_delta(serie):
             if len(serie) < 2:
                 return 0.0
@@ -380,7 +373,6 @@ def get_pix_fraud_dashboard_metrics():
             "residual": serie_residual[-1]["valor"] if serie_residual else valor_residual_nao_dev,
         }
 
-        # Distribuição por Faixa Etária
         cur.execute("""
             SELECT COALESCE(pag_idade, 'Não Informado'), COALESCE(SUM(valor), 0)
             FROM pix_transacoes_historica
@@ -390,7 +382,6 @@ def get_pix_fraud_dashboard_metrics():
         """)
         por_faixa_etaria = [{"faixa": r[0], "valor": float(r[1])} for r in cur.fetchall()]
 
-        # Top Regiões Pagadoras
         cur.execute("""
             SELECT COALESCE(pag_regiao, 'Não Informado'), COALESCE(SUM(valor), 0)
             FROM pix_transacoes_historica
@@ -400,7 +391,6 @@ def get_pix_fraud_dashboard_metrics():
         """)
         por_regiao = [{"regiao": r[0], "valor": float(r[1])} for r in cur.fetchall()]
 
-        # Natureza da Transação Pix
         cur.execute("""
             SELECT COALESCE(natureza, 'Não Informado'), COALESCE(SUM(valor), 0)
             FROM pix_transacoes_historica
@@ -410,7 +400,6 @@ def get_pix_fraud_dashboard_metrics():
         """)
         por_natureza = [{"natureza": r[0], "valor": float(r[1])} for r in cur.fetchall()]
 
-        # Motivos de Não Devolução (MED)
         cur.execute("""
             SELECT 
                 COALESCE(SUM(valorpixnaodevolvidossaldoinsuficiente), 0),
@@ -485,7 +474,6 @@ def _consultar_sgs(codigo, data_inicio="01/01/2020"):
     return df.sort_values('data').reset_index(drop=True)
 
 def _consultar_sgs_recente(codigo):
-    # Define o período (últimos 367 dias)
     data_inicio = (datetime.now() - timedelta(days=367)).strftime('%d/%m/%Y')
     url = f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados?formato=json&dataInicial={data_inicio}"
     headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
@@ -558,7 +546,6 @@ def get_indicadores_macro():
                 "serie_recente": [{"data": r["data"].strftime(formato_data), "valor": round(r["valor"], 2)} for _, r in df_grouped.tail(12).iterrows()],
             }
 
-        # Série histórica geral de crédito
         cur.execute("""
             SELECT data_base, COALESCE(SUM(carteira_ativa),0), COALESCE(SUM(carteira_inadimplencia),0) 
             FROM carteira_bcb_historica 
@@ -576,7 +563,6 @@ def get_indicadores_macro():
                 "inadimplencia_pf": round(taxa_inad, 2)
             })
 
-        # Ativos problemáticos segmentados por tipo de cliente (PF vs PJ) e histórico
         cur.execute("""
             SELECT data_base, cliente, COALESCE(SUM(ativo_problematico),0), COALESCE(SUM(carteira_ativa),0)
             FROM carteira_bcb_historica
@@ -585,7 +571,6 @@ def get_indicadores_macro():
         """)
         raw_ativos = cur.fetchall()
         
-        # Estrutura para gráfico segmentado PF vs PJ de ativos problemáticos
         dict_ativos_seg = {}
         for dt, cli, prob, ativa in raw_ativos:
             mes_ano = dt.strftime('%m/%y')
@@ -617,9 +602,18 @@ def get_indicadores_macro():
         return resultado
     except Exception as e:
         return {"error": str(e)}
-    
+
+# Cache global em memoria RAM para armazenar os resultados do endpoint de métricas do MLflow
+_mlflow_cache = None
+
 @app.get('/api/mlflow-model-metrics')
 def get_mlflow_model_metrics():
+    global _mlflow_cache
+    
+    # Retorna instantaneamente se já estiver processado em memória RAM
+    if _mlflow_cache is not None:
+        return _mlflow_cache
+
     try:
         client = MlflowClient()
         experiment_name = "FinSight_Loan_Approval_Risk"
@@ -753,19 +747,21 @@ def get_mlflow_model_metrics():
                 sorted_feats = sorted(zip(feat_names, importances), key=lambda x: x[1], reverse=True)[:10]
                 feature_importances = [{"feature": str(f[0]), "importance": float(f[1])} for f in sorted_feats]
 
-        return {
+        # Salva o resultado no cache global em memória
+        _mlflow_cache = {
             "campeao": campeao_atual,
             "comparativo": runs_data,
             "roc_curve": roc_curve_data,
             "confusion_matrix": conf_matrix,
             "feature_importances": feature_importances
         }
+
+        return _mlflow_cache
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.get('/api/initial-load')
 def get_initial_load():
-    
     try:
         dashboard_data = get_dashboard_metrics()
         fraud_data = get_pix_fraud_dashboard_metrics()
