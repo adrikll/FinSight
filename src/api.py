@@ -1,7 +1,7 @@
 import os
 import joblib
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import psycopg2
@@ -77,7 +77,7 @@ class PropostaCadastralRequest(BaseModel):
 class CenarioCrescimentoRequest(BaseModel):
     percentual_crescimento: float
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     return {"status": "online", "credit_model_loaded": pipeline is not None}
 
@@ -759,6 +759,28 @@ def get_mlflow_model_metrics():
             "roc_curve": roc_curve_data,
             "confusion_matrix": conf_matrix,
             "feature_importances": feature_importances
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get('/api/initial-load')
+def get_initial_load():
+    
+    try:
+        dashboard_data = get_dashboard_metrics()
+        fraud_data = get_pix_fraud_dashboard_metrics()
+        macro_data = get_indicadores_macro()
+        
+        try:
+            mlflow_data = get_mlflow_model_metrics()
+        except Exception as mlflow_err:
+            mlflow_data = {"error": str(mlflow_err)}
+
+        return {
+            "dashboard": dashboard_data,
+            "fraude": fraud_data,
+            "risco": mlflow_data,
+            "macro": macro_data
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

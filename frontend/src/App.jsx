@@ -25,18 +25,18 @@ export default function App() {
     setCarregandoGlobal(true);
     setErroGlobal(null);
     try {
-      const [resDashboard, resFraude, resRisco, resMacro] = await Promise.all([
-        fetch(`${API_URL}/api/dashboard-metrics`).then(r => r.json()),
-        fetch(`${API_URL}/api/pix-fraud-dashboard-metrics`).then(r => r.json()),
-        fetch(`${API_URL}/api/mlflow-model-metrics`).then(r => r.json()),
-        fetch(`${API_URL}/api/macro/indicadores`).then(r => r.json())
-      ]);
+      const response = await fetch(`${API_URL}/api/initial-load`);
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error("Erro ao carregar dados consolidados do servidor.");
+      }
 
       setDadosGlobais({
-        dashboard: resDashboard,
-        fraude: resFraude,
-        risco: resRisco,
-        macro: resMacro
+        dashboard: data.dashboard,
+        fraude: data.fraude,
+        risco: data.risco,
+        macro: data.macro
       });
     } catch (err) {
       setErroGlobal("Erro ao conectar com a API na nuvem. O servidor pode estar inicializando.");
@@ -55,7 +55,7 @@ export default function App() {
         <RefreshCw className="w-10 h-10 animate-spin text-purple-500" />
         <div className="text-center space-y-1">
           <h2 className="text-lg font-semibold">Aquecendo o Servidor e Sincronizando o FinSight...</h2>
-          <p className="text-xs text-slate-400">Isso pode levar alguns segundos caso o container na Azure esteja iniciando.</p>
+          <p className="text-xs text-slate-400">Isso pode levar alguns segundos caso o container no Render esteja iniciando.</p>
         </div>
       </div>
     );
